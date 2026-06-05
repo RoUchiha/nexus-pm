@@ -1,7 +1,7 @@
 // ── Provider types ────────────────────────────────────────────────────────────
 
 export type ProviderTier = 'free' | 'freemium' | 'paid';
-export type ModelRole = 'manager' | 'pod';
+export type ModelRole = 'manager' | 'pod' | 'verifier';
 
 export interface ProviderModel {
   id: string;
@@ -24,6 +24,7 @@ export interface ProviderDefinition {
   models: ProviderModel[];
   defaultManagerModel: string;
   defaultPodModel: string;
+  defaultVerifierModel: string;
 }
 
 export interface ProviderConfig {
@@ -32,6 +33,7 @@ export interface ProviderConfig {
   apiKey: string;
   managerModel: string;
   podModel: string;
+  verifierModel?: string;
   customBaseUrl?: string;
 }
 
@@ -130,7 +132,7 @@ export type AppPhase =
 
 export type PodStatus = 'queued' | 'waiting' | 'running' | 'completed' | 'failed';
 
-export type MessageType = 'broadcast' | 'signal' | 'aligned' | 'risk' | 'spec_ref' | 'spec_conflict' | 'system';
+export type MessageType = 'broadcast' | 'signal' | 'aligned' | 'risk' | 'spec_ref' | 'spec_conflict' | 'system' | 'report' | 'directive';
 
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 
@@ -207,6 +209,28 @@ export interface SynthesisResult {
   specComplianceSummary: string;
 }
 
+export type ActivityAction =
+  | 'spec_drafted'
+  | 'pod_started'
+  | 'pod_completed'
+  | 'pod_failed'
+  | 'manager_directive'
+  | 'verification_result'
+  | 'coordination_correction'
+  | 'synthesis_complete';
+
+export interface ActivityLogEntry {
+  id: string;
+  timestamp: number;
+  agentId: string;        // 'nexus-manager', 'pod:research_pod', 'nexus-verifier'
+  agentName: string;      // human readable label
+  phase: AppPhase;
+  action: ActivityAction;
+  missionPortion: string; // what part of the mission this covers
+  reasoning: string;      // the logic that led to this action
+  details?: string;       // extra context, VC refs, etc.
+}
+
 export interface NexusState {
   phase: AppPhase;
   mission: string;
@@ -218,6 +242,7 @@ export interface NexusState {
   verification: VerificationResult | null;
   coordination: CoordinationResult | null;
   synthesis: SynthesisResult | null;
+  activityLog: ActivityLogEntry[];
   error: string | null;
   startTime: number | null;
 }

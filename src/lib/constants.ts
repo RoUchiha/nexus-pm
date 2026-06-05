@@ -37,6 +37,8 @@ export const BUS_TYPE_META: Record<MessageType, { icon: string; color: string }>
   spec_ref:      { icon: '§',  color: '#58a6ff' },
   spec_conflict: { icon: '⊗',  color: '#f85149' },
   system:        { icon: '⬡',  color: '#8b949e' },
+  report:        { icon: '↑',  color: '#d29922' },
+  directive:     { icon: '↓',  color: '#3fb950' },
 };
 
 export const COMPLEXITY_COLORS: Record<Complexity, string> = {

@@ -9,6 +9,7 @@ import { PodCard } from './components/PodCard';
 import { MessageBusPanel } from './components/MessageBusPanel';
 import { VerificationPanel } from './components/VerificationPanel';
 import { SynthesisPanel } from './components/SynthesisPanel';
+import { ActivityFeedPanel } from './components/ActivityFeedPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useNexus } from './hooks/useNexus';
 import { loadProviderConfigs } from './lib/storage';
@@ -21,7 +22,7 @@ export function App() {
 
   const {
     phase, mission, spec, discovery, pods, bus,
-    verification, coordination, synthesis, error,
+    verification, coordination, synthesis, activityLog, error,
   } = state;
 
   const isRunning = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(phase);
@@ -68,6 +69,7 @@ export function App() {
         {phase === 'idle' && (
           <MissionInput
             onSubmit={handleMission}
+            onDemo={actions.runDemo}
             disabled={isRunning}
             hasApiKey={true}
           />
@@ -146,6 +148,9 @@ export function App() {
 
         {/* ── Inter-agent message bus ── */}
         {bus.length > 0 && <MessageBusPanel messages={bus} />}
+
+        {/* ── Agent activity feed ── */}
+        {activityLog.length > 0 && <ActivityFeedPanel entries={activityLog} />}
 
         {/* ── Verifying spinner ── */}
         {phase === 'verifying' && !verification && (

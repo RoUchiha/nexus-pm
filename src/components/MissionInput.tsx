@@ -4,11 +4,12 @@ import { EXAMPLE_MISSIONS } from '../lib/constants';
 
 interface Props {
   onSubmit: (mission: string) => void;
+  onDemo?: () => void;
   disabled: boolean;
   hasApiKey: boolean;
 }
 
-export function MissionInput({ onSubmit, disabled, hasApiKey }: Props) {
+export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
 
@@ -77,8 +78,18 @@ export function MissionInput({ onSubmit, disabled, hasApiKey }: Props) {
         </div>
       )}
 
-      <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 4 }}>
-        ⌘ + Enter to launch
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+        <span style={{ fontSize: 11, color: 'var(--dim)' }}>⌘ + Enter to launch</span>
+        {onDemo && (
+          <button
+            className="btn btn-ghost"
+            onClick={onDemo}
+            disabled={disabled}
+            style={{ fontSize: 11, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 5 }}
+          >
+            <span style={{ fontSize: 13 }}>▶</span> Watch Demo
+          </button>
+        )}
       </div>
     </div>
   );

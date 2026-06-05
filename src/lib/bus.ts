@@ -5,6 +5,8 @@ const PATTERNS: Array<{ re: RegExp; type: MessageType; toAll: boolean }> = [
   { re: /\[ALIGNED\]:\s*(.+)/gi,          type: 'aligned',       toAll: true },
   { re: /\[RISK\]:\s*(.+)/gi,             type: 'risk',          toAll: true },
   { re: /\[SPEC-CONFLICT:[^\]]*\]:\s*(.+)/gi, type: 'spec_conflict', toAll: true },
+  { re: /\[REPORT→NEXUS\]:\s*(.+)/gi,     type: 'report',        toAll: false },
+  { re: /\[DIRECTIVE\]:\s*(.+)/gi,        type: 'directive',     toAll: true },
 ];
 
 // [VC-REF: VC-001]: evidence text
@@ -37,7 +39,7 @@ export function parseBusMessages(
         id: nextId(),
         timestamp: Date.now(),
         from: fromPodId,
-        to: toAll ? 'ALL' : '',
+        to: type === 'report' ? 'NEXUS' : toAll ? 'ALL' : '',
         type,
         content,
       });
@@ -94,6 +96,8 @@ export function stripBusMessages(text: string): string {
     .replace(/\[SIGNAL→\w+\]:[^\n]*/gi, '')
     .replace(/\[VC-REF:[^\]]*\]:[^\n]*/gi, '')
     .replace(/\[SPEC-CONFLICT:[^\]]*\]/gi, '')
+    .replace(/\[REPORT→NEXUS\]:[^\n]*/gi, '')
+    .replace(/\[DIRECTIVE\]:[^\n]*/gi, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

@@ -117,6 +117,7 @@ export function podSystem(
   spec: MissionSpec,
   depOutputs: Record<string, string>,
   busMessages: BusMessage[],
+  managerDirectives?: string,
 ): string {
   const myVCs: VerificationCriterion[] = spec.verificationCriteria.filter(
     v => pod.vcIds.includes(v.id),
@@ -165,8 +166,12 @@ INTER-AGENT COMMUNICATION PROTOCOL:
   [ALIGNED]: <decision> — confirm a shared decision
   [RISK]: <description> — flag a blocker or spec conflict
   [VC-REF: VC-XXX]: <evidence> — cite spec compliance (use inline, not as a separate line)
+  [REPORT→NEXUS]: <update> — report a key decision or finding to the NEXUS manager
 
-YOUR DELIVERABLE: ${pod.deliverable}
+${managerDirectives ? `MANAGER DIRECTIVES (from NEXUS — follow these):
+${managerDirectives}
+
+` : ''}YOUR DELIVERABLE: ${pod.deliverable}
 
 Execute thoroughly. Address all your assigned VCs with explicit evidence.`;
 }
@@ -336,4 +341,57 @@ ${outputs}
 ${correctionNote}
 
 Synthesize into the final executive report JSON. The specComplianceSummary must be specific about which VCs passed and failed.`;
+}
+
+// ── Manager wave check (between DAG execution waves) ─────────────────────────
+
+export function managerWaveCheckSystem(): string {
+  return `You are NEXUS, the manager agent. A wave of pods has just completed. Review their outputs and the message bus, then issue directives for the next wave of pods.
+
+Return ONLY valid JSON:
+{
+  "waveSummary": "string — 1-2 sentence summary of what this wave accomplished",
+  "directives": [
+    {
+      "targetPodId": "pod_id or ALL",
+      "instruction": "string — specific directive for the next-wave pod(s)",
+      "reasoning": "string — why this directive is needed based on completed pod outputs"
+    }
+  ],
+  "specAlerts": ["string — any spec compliance concerns from this wave"],
+  "logEntry": {
+    "missionPortion": "string — what portion of the mission was covered by this wave",
+    "reasoning": "string — the logic that led to these directives"
+  }
+}
+
+If there are no issues and no directives needed, return empty directives array. Be specific — reference actual VC IDs and pod names.`;
+}
+
+export function managerWaveCheckUser(
+  waveNumber: number,
+  completedPods: Pod[],
+  pendingPodIds: string[],
+  spec: MissionSpec,
+  busMessages: BusMessage[],
+): string {
+  const completedSection = completedPods
+    .map(p => `=== ${p.name} (${p.id}) ===\nVCs: ${p.vcIds.join(', ')}\nStatus: ${p.status}\n${truncateForContext(stripBusTags(p.output), 1200)}`)
+    .join('\n\n');
+
+  const busText = busMessages
+    .map(m => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
+    .join('\n') || 'No bus messages.';
+
+  return `Wave ${waveNumber} completed. Pods awaiting directives for next wave: ${pendingPodIds.join(', ')}
+
+SPEC OUTCOMES: ${spec.outcomes.join(' | ')}
+
+COMPLETED POD OUTPUTS (this wave):
+${completedSection}
+
+MESSAGE BUS (all messages so far):
+${busText}
+
+Review wave results and issue any directives needed for the next wave's pods.`;
 }

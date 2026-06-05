@@ -15,14 +15,15 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'http://localhost:11434',
     format: 'openai',
     models: [
-      { id: 'llama3.2',         name: 'Llama 3.2',         roles: ['manager', 'pod'], contextWindow: 128000 },
-      { id: 'llama3.1',         name: 'Llama 3.1',         roles: ['manager', 'pod'], contextWindow: 128000 },
-      { id: 'mistral',          name: 'Mistral 7B',         roles: ['pod'],            contextWindow: 32000  },
-      { id: 'deepseek-r1',      name: 'DeepSeek R1',        roles: ['manager', 'pod'], contextWindow: 64000  },
-      { id: 'qwen2.5:14b',      name: 'Qwen 2.5 14B',       roles: ['manager', 'pod'], contextWindow: 128000 },
+      { id: 'llama3.2',         name: 'Llama 3.2',         roles: ['manager', 'pod', 'verifier'], contextWindow: 128000 },
+      { id: 'llama3.1',         name: 'Llama 3.1',         roles: ['manager', 'pod', 'verifier'], contextWindow: 128000 },
+      { id: 'mistral',          name: 'Mistral 7B',         roles: ['pod'],                        contextWindow: 32000  },
+      { id: 'deepseek-r1',      name: 'DeepSeek R1',        roles: ['manager', 'pod', 'verifier'], contextWindow: 64000  },
+      { id: 'qwen2.5:14b',      name: 'Qwen 2.5 14B',       roles: ['manager', 'pod', 'verifier'], contextWindow: 128000 },
     ],
     defaultManagerModel: 'llama3.2',
     defaultPodModel: 'mistral',
+    defaultVerifierModel: 'llama3.2',
   },
   {
     id: 'groq',
@@ -35,13 +36,14 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'https://api.groq.com/openai',
     format: 'openai',
     models: [
-      { id: 'llama-3.3-70b-versatile',  name: 'Llama 3.3 70B',      roles: ['manager', 'pod'], contextWindow: 128000, notes: 'Free tier' },
-      { id: 'llama-3.1-8b-instant',     name: 'Llama 3.1 8B',       roles: ['pod'],            contextWindow: 128000, notes: 'Free tier, very fast' },
-      { id: 'mixtral-8x7b-32768',        name: 'Mixtral 8x7B',       roles: ['pod'],            contextWindow: 32768,  notes: 'Free tier' },
-      { id: 'gemma2-9b-it',             name: 'Gemma 2 9B',          roles: ['pod'],            contextWindow: 8192,   notes: 'Free tier' },
+      { id: 'llama-3.3-70b-versatile',  name: 'Llama 3.3 70B',      roles: ['manager', 'pod', 'verifier'], contextWindow: 128000, notes: 'Free tier' },
+      { id: 'llama-3.1-8b-instant',     name: 'Llama 3.1 8B',       roles: ['pod'],                        contextWindow: 128000, notes: 'Free tier, very fast' },
+      { id: 'mixtral-8x7b-32768',        name: 'Mixtral 8x7B',       roles: ['pod'],                        contextWindow: 32768,  notes: 'Free tier' },
+      { id: 'gemma2-9b-it',             name: 'Gemma 2 9B',          roles: ['pod'],                        contextWindow: 8192,   notes: 'Free tier' },
     ],
     defaultManagerModel: 'llama-3.3-70b-versatile',
     defaultPodModel: 'llama-3.1-8b-instant',
+    defaultVerifierModel: 'llama-3.3-70b-versatile',
   },
   {
     id: 'gemini',
@@ -53,13 +55,14 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'https://generativelanguage.googleapis.com',
     format: 'gemini',
     models: [
-      { id: 'gemini-1.5-flash',        name: 'Gemini 1.5 Flash',    roles: ['manager', 'pod'], contextWindow: 1000000, notes: 'Free tier' },
-      { id: 'gemini-1.5-flash-8b',     name: 'Gemini 1.5 Flash 8B', roles: ['pod'],            contextWindow: 1000000, notes: 'Free tier, fastest' },
-      { id: 'gemini-1.5-pro',          name: 'Gemini 1.5 Pro',      roles: ['manager', 'pod'], contextWindow: 2000000, notes: 'Freemium' },
-      { id: 'gemini-2.0-flash',        name: 'Gemini 2.0 Flash',    roles: ['manager', 'pod'], contextWindow: 1000000, notes: 'Freemium' },
+      { id: 'gemini-1.5-flash',        name: 'Gemini 1.5 Flash',    roles: ['manager', 'pod', 'verifier'], contextWindow: 1000000, notes: 'Free tier' },
+      { id: 'gemini-1.5-flash-8b',     name: 'Gemini 1.5 Flash 8B', roles: ['pod'],                        contextWindow: 1000000, notes: 'Free tier, fastest' },
+      { id: 'gemini-1.5-pro',          name: 'Gemini 1.5 Pro',      roles: ['manager', 'pod', 'verifier'], contextWindow: 2000000, notes: 'Freemium' },
+      { id: 'gemini-2.0-flash',        name: 'Gemini 2.0 Flash',    roles: ['manager', 'pod', 'verifier'], contextWindow: 1000000, notes: 'Freemium' },
     ],
     defaultManagerModel: 'gemini-1.5-flash',
     defaultPodModel: 'gemini-1.5-flash-8b',
+    defaultVerifierModel: 'gemini-1.5-pro',
   },
   {
     id: 'mistral',
@@ -71,13 +74,14 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'https://api.mistral.ai',
     format: 'openai',
     models: [
-      { id: 'mistral-small-latest',    name: 'Mistral Small',       roles: ['pod'],            contextWindow: 32000,  notes: 'Free tier' },
-      { id: 'open-mistral-nemo',       name: 'Mistral Nemo',        roles: ['pod'],            contextWindow: 128000, notes: 'Free tier' },
-      { id: 'mistral-medium-latest',   name: 'Mistral Medium',      roles: ['manager', 'pod'], contextWindow: 32000  },
-      { id: 'mistral-large-latest',    name: 'Mistral Large',       roles: ['manager', 'pod'], contextWindow: 128000 },
+      { id: 'mistral-small-latest',    name: 'Mistral Small',       roles: ['pod'],                        contextWindow: 32000,  notes: 'Free tier' },
+      { id: 'open-mistral-nemo',       name: 'Mistral Nemo',        roles: ['pod'],                        contextWindow: 128000, notes: 'Free tier' },
+      { id: 'mistral-medium-latest',   name: 'Mistral Medium',      roles: ['manager', 'pod', 'verifier'], contextWindow: 32000  },
+      { id: 'mistral-large-latest',    name: 'Mistral Large',       roles: ['manager', 'pod', 'verifier'], contextWindow: 128000 },
     ],
     defaultManagerModel: 'mistral-large-latest',
     defaultPodModel: 'mistral-small-latest',
+    defaultVerifierModel: 'mistral-large-latest',
   },
   {
     id: 'together',
@@ -89,13 +93,14 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'https://api.together.xyz',
     format: 'openai',
     models: [
-      { id: 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo', name: 'Llama 3.2 11B',  roles: ['pod'],            contextWindow: 131072 },
-      { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',   name: 'Llama 3.1 70B',  roles: ['manager', 'pod'], contextWindow: 131072 },
-      { id: 'mistralai/Mixtral-8x7B-Instruct-v0.1',           name: 'Mixtral 8x7B',   roles: ['pod'],            contextWindow: 32768  },
-      { id: 'Qwen/QwQ-32B',                                   name: 'QwQ 32B',         roles: ['manager', 'pod'], contextWindow: 32768  },
+      { id: 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo', name: 'Llama 3.2 11B',  roles: ['pod'],                        contextWindow: 131072 },
+      { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',   name: 'Llama 3.1 70B',  roles: ['manager', 'pod', 'verifier'], contextWindow: 131072 },
+      { id: 'mistralai/Mixtral-8x7B-Instruct-v0.1',           name: 'Mixtral 8x7B',   roles: ['pod'],                        contextWindow: 32768  },
+      { id: 'Qwen/QwQ-32B',                                   name: 'QwQ 32B',         roles: ['manager', 'pod', 'verifier'], contextWindow: 32768  },
     ],
     defaultManagerModel: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
     defaultPodModel: 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo',
+    defaultVerifierModel: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo',
   },
   {
     id: 'openai',
@@ -108,13 +113,14 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'https://api.openai.com',
     format: 'openai',
     models: [
-      { id: 'gpt-4o-mini',  name: 'GPT-4o Mini',  roles: ['pod'],            contextWindow: 128000 },
-      { id: 'gpt-4o',       name: 'GPT-4o',       roles: ['manager', 'pod'], contextWindow: 128000 },
-      { id: 'o4-mini',      name: 'o4-mini',      roles: ['manager', 'pod'], contextWindow: 128000 },
-      { id: 'o3',           name: 'o3',           roles: ['manager'],        contextWindow: 200000 },
+      { id: 'gpt-4o-mini',  name: 'GPT-4o Mini',  roles: ['pod'],                        contextWindow: 128000 },
+      { id: 'gpt-4o',       name: 'GPT-4o',       roles: ['manager', 'pod', 'verifier'], contextWindow: 128000 },
+      { id: 'o4-mini',      name: 'o4-mini',      roles: ['manager', 'pod', 'verifier'], contextWindow: 128000 },
+      { id: 'o3',           name: 'o3',           roles: ['manager', 'verifier'],        contextWindow: 200000 },
     ],
     defaultManagerModel: 'gpt-4o',
     defaultPodModel: 'gpt-4o-mini',
+    defaultVerifierModel: 'gpt-4o',
   },
   {
     id: 'anthropic',
@@ -127,12 +133,13 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     baseUrl: 'https://api.anthropic.com',
     format: 'anthropic',
     models: [
-      { id: 'claude-haiku-4-5',  name: 'Claude Haiku 4.5',  roles: ['pod'],            contextWindow: 200000 },
-      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', roles: ['manager', 'pod'], contextWindow: 200000 },
-      { id: 'claude-opus-4-8',   name: 'Claude Opus 4.8',   roles: ['manager'],        contextWindow: 200000 },
+      { id: 'claude-haiku-4-5',  name: 'Claude Haiku 4.5',  roles: ['pod'],                        contextWindow: 200000 },
+      { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', roles: ['manager', 'pod', 'verifier'], contextWindow: 200000 },
+      { id: 'claude-opus-4-8',   name: 'Claude Opus 4.8',   roles: ['manager', 'verifier'],        contextWindow: 200000 },
     ],
     defaultManagerModel: 'claude-opus-4-8',
     defaultPodModel: 'claude-sonnet-4-6',
+    defaultVerifierModel: 'claude-sonnet-4-6',
   },
 ];
 
@@ -144,7 +151,7 @@ const TIER_ORDER: Record<string, number> = { free: 0, freemium: 1, paid: 2 };
 
 export function resolveProviders(
   configs: ProviderConfig[],
-  role: 'manager' | 'pod',
+  role: 'manager' | 'pod' | 'verifier',
 ): ResolvedProvider[] {
   return configs
     .filter(c => {
@@ -156,7 +163,10 @@ export function resolveProviders(
     })
     .map(c => ({ definition: PROVIDER_MAP.get(c.providerId)!, config: c }))
     .filter(({ definition, config }) => {
-      const model = role === 'manager' ? config.managerModel : config.podModel;
+      const model =
+        role === 'manager' ? config.managerModel :
+        role === 'verifier' ? (config.verifierModel || config.managerModel) :
+        config.podModel;
       return definition.models.some(m => m.id === model && m.roles.includes(role));
     })
     .sort((a, b) => TIER_ORDER[a.definition.tier] - TIER_ORDER[b.definition.tier]);
@@ -169,6 +179,7 @@ export function defaultConfigs(): ProviderConfig[] {
     apiKey: '',
     managerModel: def.defaultManagerModel,
     podModel: def.defaultPodModel,
+    verifierModel: def.defaultVerifierModel,
   }));
 }
 
@@ -417,7 +428,7 @@ export async function streamWithProvider(
 
 export async function jsonWithFallback<T>(
   providers: ResolvedProvider[],
-  role: 'manager' | 'pod',
+  role: 'manager' | 'pod' | 'verifier',
   system: string,
   userMessage: string,
   signal?: AbortSignal,
@@ -430,7 +441,10 @@ export async function jsonWithFallback<T>(
 
   for (const provider of providers) {
     if (signal?.aborted) throw new Error('Aborted');
-    const model = role === 'manager' ? provider.config.managerModel : provider.config.podModel;
+    const model =
+      role === 'manager' ? provider.config.managerModel :
+      role === 'verifier' ? (provider.config.verifierModel || provider.config.managerModel) :
+      provider.config.podModel;
 
     try {
       const result = await new Promise<T>((resolve, reject) => {
@@ -470,7 +484,7 @@ export async function jsonWithFallback<T>(
 
 export async function streamWithFallback(
   providers: ResolvedProvider[],
-  role: 'manager' | 'pod',
+  role: 'manager' | 'pod' | 'verifier',
   system: string,
   messages: ApiMessage[],
   callbacks: StreamCallbacks & { onProviderSelect?: (providerId: string) => void },
@@ -483,7 +497,10 @@ export async function streamWithFallback(
 
   for (const provider of providers) {
     if (signal?.aborted) { callbacks.onError(new Error('Aborted')); return ''; }
-    const model = role === 'manager' ? provider.config.managerModel : provider.config.podModel;
+    const model =
+      role === 'manager' ? provider.config.managerModel :
+      role === 'verifier' ? (provider.config.verifierModel || provider.config.managerModel) :
+      provider.config.podModel;
     callbacks.onProviderSelect?.(provider.definition.id);
 
     const success = await new Promise<boolean>(resolve => {

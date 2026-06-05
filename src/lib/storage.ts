@@ -1,5 +1,5 @@
 import type { NexusState, ProviderConfig } from '../types';
-import { defaultConfigs } from './providers';
+import { defaultConfigs, PROVIDER_MAP } from './providers';
 
 const SESSION_KEY = 'nexus_session';
 const PROVIDERS_KEY = 'nexus_providers';
@@ -21,7 +21,14 @@ export function loadProviderConfigs(): ProviderConfig[] {
     // Merge with defaults to handle new providers added in updates
     const defaults = defaultConfigs();
     const existingIds = new Set(parsed.map(c => c.providerId));
-    const merged = [...parsed];
+    const merged = parsed.map(c => {
+      // Backfill verifierModel if missing (added in newer versions)
+      if (!c.verifierModel) {
+        const def = PROVIDER_MAP.get(c.providerId);
+        return { ...c, verifierModel: def?.defaultVerifierModel ?? c.managerModel };
+      }
+      return c;
+    });
     for (const d of defaults) {
       if (!existingIds.has(d.providerId)) merged.push(d);
     }

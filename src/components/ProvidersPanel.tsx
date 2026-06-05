@@ -41,6 +41,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
 
   const managerCount = resolveProviders(configs, 'manager').length;
   const podCount = resolveProviders(configs, 'pod').length;
+  const verifierCount = resolveProviders(configs, 'verifier').length;
   const enabledCount = configs.filter(c => c.enabled).length;
 
   // Group by tier for display
@@ -96,6 +97,10 @@ export function ProvidersPanel({ configs, onChange }: Props) {
             <span style={{ color: podCount > 0 ? 'var(--green)' : 'var(--red)' }}>●</span>
             {' '}{podCount} pod
           </span>
+          <span>
+            <span style={{ color: verifierCount > 0 ? 'var(--green)' : 'var(--yellow)' }}>●</span>
+            {' '}{verifierCount} verifier
+          </span>
           <span style={{ color: 'var(--dim)' }}>{enabledCount} enabled</span>
         </div>
 
@@ -141,6 +146,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
 
                   const managerModels = def.models.filter(m => m.roles.includes('manager'));
                   const podModels = def.models.filter(m => m.roles.includes('pod'));
+                  const verifierModels = def.models.filter(m => m.roles.includes('verifier'));
 
                   return (
                     <div
@@ -264,6 +270,28 @@ export function ProvidersPanel({ configs, onChange }: Props) {
                           </select>
                         </div>
                       </div>
+
+                      {/* Verifier model — full width */}
+                      {verifierModels.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: 10, color: 'var(--dim)', marginBottom: 4 }}>
+                            VERIFIER MODEL
+                            <span style={{ color: 'var(--dim)', fontWeight: 400, marginLeft: 4 }}>
+                              (adversarial auditor — defaults to manager if unset)
+                            </span>
+                          </div>
+                          <select
+                            className="input"
+                            value={cfg.verifierModel ?? def.defaultVerifierModel}
+                            onChange={e => update(def.id, { verifierModel: e.target.value })}
+                            style={{ fontSize: 11, padding: '4px 8px' }}
+                          >
+                            {verifierModels.map(m => (
+                              <option key={m.id} value={m.id}>{m.name}{m.notes ? ` (${m.notes})` : ''}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
