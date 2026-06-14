@@ -1,4 +1,4 @@
-import type { Pod, MissionSpec, VerificationCriterion, BusMessage } from '../types';
+import type { Pod, MissionSpec, VerificationCriterion, BusMessage, WorkerAgentConnection } from '../types';
 import { truncateForContext } from './security';
 import { formatBusMessagesForPod } from './bus';
 
@@ -103,8 +103,14 @@ SPEC QUALITY RULES:
 - Define 3–8 pods. Dependencies must reference valid pod IDs.`;
 }
 
-export function specDraftingUser(mission: string): string {
-  return `Mission: ${mission}
+export function specDraftingUser(mission: string, workerAgents: WorkerAgentConnection[] = []): string {
+  const workerRoster = workerAgents.length > 0
+    ? `\n\nCONNECTED COMPANY WORKER AGENTS:\n${workerAgents.map(agent => (
+      `- ${agent.name} (owner: ${agent.ownerName || 'unassigned'}): ${agent.capabilities || 'no capabilities declared'}`
+    )).join('\n')}\n\nWhen practical, shape pod roles and handoff context so these worker agents can fulfill tasks manually under manager review.`
+    : '';
+
+  return `Mission: ${mission}${workerRoster}
 
 Draft the mission spec and execution plan. Ensure every verification criterion is testable and assigned to a pod.`;
 }
@@ -174,6 +180,128 @@ ${managerDirectives}
 ` : ''}YOUR DELIVERABLE: ${pod.deliverable}
 
 Execute thoroughly. Address all your assigned VCs with explicit evidence.`;
+}
+
+// ── Company worker agent handoff + review ───────────────────────────────────
+
+export function workerHandoffPrompt(
+  workerAgent: WorkerAgentConnection,
+  pod: Pod,
+  mission: string,
+  spec: MissionSpec,
+  depOutputs: Record<string, string>,
+  busMessages: BusMessage[],
+  managerDirectives?: string,
+): string {
+  return `NEXUS MANAGER HANDOFF PACKET
+
+Company worker agent: ${workerAgent.name}
+Owner: ${workerAgent.ownerName || 'Unassigned company worker'}
+Declared capabilities: ${workerAgent.capabilities || 'Not specified'}
+Connection notes: ${workerAgent.connectionNotes || 'No notes provided'}
+
+You are being connected to the NEXUS Manager as a company-owned worker agent.
+The manager remains the single source of truth for mission scope, verification criteria, and cross-agent communication.
+
+Workflow:
+1. Use the brief below as the full prompt for your own agent.
+2. Produce the requested deliverable with explicit [VC-REF: VC-XXX] evidence.
+3. Include [BROADCAST], [SIGNAL→pod_id], [RISK], [ALIGNED], or [REPORT→NEXUS] lines when other agents need the information.
+4. Return the final output to NEXUS for manager review. NEXUS may request revisions before this pod is accepted.
+
+Mission entered by the company:
+${mission}
+
+${podSystem(pod, mission, spec, depOutputs, busMessages, managerDirectives)}
+
+Submission checklist:
+- Covers every assigned VC: ${pod.vcIds.join(', ') || 'none assigned'}
+- Calls out dependencies or assumptions that downstream pods need
+- Avoids out-of-scope work and any "never" constraints
+- Provides concrete evidence, not just intent`;
+}
+
+export function workerReviewSystem(): string {
+  return `You are NEXUS, the manager agent reviewing work from a company worker's own agent.
+
+Your job is to vet the submission before it becomes part of the official mission record.
+The mission spec is the single source of truth.
+
+Return ONLY valid JSON:
+{
+  "approved": true,
+  "summary": "string - concise manager assessment of the submitted work",
+  "managerGuidance": "string - what the worker should do next, or why the work is accepted",
+  "requiredRevisions": ["string - concrete revision needed before approval"],
+  "vcStatus": { "VC-001": "passed|partial|failed|pending" },
+  "directives": [
+    {
+      "targetPodId": "pod_id or ALL",
+      "instruction": "string - instruction NEXUS should send to other pods based on this work",
+      "reasoning": "string - why this directive matters"
+    }
+  ],
+  "busSummary": "string - short message NEXUS should publish to the inter-agent bus if approved"
+}
+
+REVIEW RULES:
+- Approve only when all assigned VCs are directly addressed with evidence.
+- Mark partial when the idea is present but evidence or implementation detail is missing.
+- Require revisions for scope creep, missing VC evidence, ignored manager directives, or unclear downstream contracts.
+- Add directives when other pods need to adapt to this worker output.
+- Keep guidance actionable and specific.`;
+}
+
+export function workerReviewUser(
+  workerAgent: WorkerAgentConnection,
+  pod: Pod,
+  spec: MissionSpec,
+  depOutputs: Record<string, string>,
+  busMessages: BusMessage[],
+  submittedOutput: string,
+): string {
+  const vcText = spec.verificationCriteria
+    .filter(v => pod.vcIds.includes(v.id))
+    .map(v => `  ${v.id} [${v.category}]: ${v.description}`)
+    .join('\n') || '  No VCs directly assigned.';
+
+  const depSection = Object.entries(depOutputs).length > 0
+    ? Object.entries(depOutputs)
+        .map(([id, out]) => `--- Output from ${id} ---\n${truncateForContext(stripBusTags(out), 1400)}`)
+        .join('\n\n')
+    : 'No dependency outputs.';
+
+  const busText = busMessages
+    .map(m => `[${m.type.toUpperCase()}] ${m.from}->${m.to}: ${m.content}`)
+    .join('\n') || 'No bus messages.';
+
+  return `COMPANY WORKER AGENT:
+Name: ${workerAgent.name}
+Owner: ${workerAgent.ownerName || 'Unassigned'}
+Capabilities: ${workerAgent.capabilities || 'Not specified'}
+
+POD UNDER REVIEW:
+${pod.id} (${pod.name})
+Role: ${pod.role}
+Responsibility: ${pod.responsibility}
+Deliverable: ${pod.deliverable}
+
+ASSIGNED VERIFICATION CRITERIA:
+${vcText}
+
+BINDING SPEC:
+${specToText(spec)}
+
+DEPENDENCY OUTPUTS AVAILABLE TO THIS WORKER:
+${depSection}
+
+MESSAGE BUS HISTORY:
+${busText}
+
+SUBMITTED WORKER OUTPUT:
+${truncateForContext(submittedOutput, 6000)}
+
+Review this worker-agent submission. Decide whether NEXUS should accept it into the official pod output or request revisions.`;
 }
 
 // ── Phase 3: Verification (adversarial, separate from pods) ──────────────────

@@ -6,6 +6,10 @@ const ACTION_META: Record<ActivityAction, { label: string; color: string }> = {
   pod_started:             { label: 'POD STARTED',     color: 'var(--muted)'  },
   pod_completed:           { label: 'POD COMPLETE',    color: 'var(--green)'  },
   pod_failed:              { label: 'POD FAILED',      color: 'var(--red)'    },
+  worker_agent_claimed:    { label: 'WORKER CLAIMED',  color: 'var(--blue)'   },
+  worker_submission_received: { label: 'WORKER SUBMIT', color: 'var(--purple)' },
+  worker_submission_approved: { label: 'WORK APPROVED', color: 'var(--green)'  },
+  worker_revision_requested: { label: 'REVISION',       color: 'var(--yellow)' },
   manager_directive:       { label: 'DIRECTIVE',       color: 'var(--yellow)' },
   verification_result:     { label: 'VERIFIED',        color: 'var(--purple)' },
   coordination_correction: { label: 'CORRECTION',      color: 'var(--orange)' },
@@ -18,6 +22,7 @@ const AGENT_ICONS: Record<string, string> = {
 };
 
 function agentIcon(agentId: string): string {
+  if (agentId.startsWith('worker:')) return '◇';
   if (agentId.startsWith('pod:')) return '◉';
   return AGENT_ICONS[agentId] ?? '○';
 }
@@ -25,6 +30,7 @@ function agentIcon(agentId: string): string {
 function agentColor(agentId: string): string {
   if (agentId === 'nexus-manager')  return 'var(--blue)';
   if (agentId === 'nexus-verifier') return 'var(--purple)';
+  if (agentId.startsWith('worker:')) return 'var(--orange)';
   if (agentId.startsWith('pod:'))   return 'var(--green)';
   return 'var(--muted)';
 }

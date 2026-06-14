@@ -1,8 +1,10 @@
-import type { NexusState, ProviderConfig } from '../types';
+import type { NexusState, ProviderConfig, WorkerAgentConnection, WorkerMode } from '../types';
 import { defaultConfigs, PROVIDER_MAP } from './providers';
 
 const SESSION_KEY = 'nexus_session';
 const PROVIDERS_KEY = 'nexus_providers';
+const WORKER_AGENTS_KEY = 'nexus_worker_agents';
+const WORKER_MODE_KEY = 'nexus_worker_mode';
 
 // ── Provider configs ──────────────────────────────────────────────────────────
 // Stored in sessionStorage — API keys never written to disk
@@ -40,6 +42,46 @@ export function loadProviderConfigs(): ProviderConfig[] {
 
 export function clearProviderConfigs(): void {
   sessionStorage.removeItem(PROVIDERS_KEY);
+}
+
+// ── Company worker agent configs ─────────────────────────────────────────────
+
+export function saveWorkerAgents(agents: WorkerAgentConnection[]): void {
+  try {
+    sessionStorage.setItem(WORKER_AGENTS_KEY, JSON.stringify(agents));
+  } catch { /* quota — best effort */ }
+}
+
+export function loadWorkerAgents(): WorkerAgentConnection[] {
+  try {
+    const raw = sessionStorage.getItem(WORKER_AGENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as WorkerAgentConnection[];
+    return parsed.map(agent => ({
+      ...agent,
+      enabled: agent.enabled ?? true,
+      connectionNotes: agent.connectionNotes ?? '',
+      createdAt: agent.createdAt ?? Date.now(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function saveWorkerMode(mode: WorkerMode): void {
+  try {
+    sessionStorage.setItem(WORKER_MODE_KEY, mode);
+  } catch { /* quota — best effort */ }
+}
+
+export function loadWorkerMode(): WorkerMode {
+  try {
+    return sessionStorage.getItem(WORKER_MODE_KEY) === 'company_workers'
+      ? 'company_workers'
+      : 'autonomous';
+  } catch {
+    return 'autonomous';
+  }
 }
 
 // ── Session state ─────────────────────────────────────────────────────────────

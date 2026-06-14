@@ -12,9 +12,10 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
   const [expanded, setExpanded] = useState(false);
   const outputRef = useRef<HTMLDivElement>(null);
   const isRunning = pod.status === 'running';
+  const isActive = isRunning || pod.status === 'reviewing';
   const meta = STATUS_META[pod.status];
 
-  useEffect(() => { if (isRunning) setExpanded(true); }, [isRunning]);
+  useEffect(() => { if (isActive) setExpanded(true); }, [isActive]);
 
   useEffect(() => {
     if (expanded && outputRef.current) {
@@ -44,7 +45,7 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
       {/* Header */}
       <div className="pod-card-header" onClick={() => setExpanded(e => !e)}>
         <div
-          className={`pod-status-indicator ${isRunning || pod.status === 'waiting' ? 'pulse' : ''}`}
+          className={`pod-status-indicator ${isActive || pod.status === 'waiting' ? 'pulse' : ''}`}
           style={{ background: meta.color }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -114,6 +115,7 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
           <div className="pod-output" style={{ color: 'var(--dim)', fontStyle: 'italic' }}>
             {pod.status === 'waiting' ? 'Waiting for dependencies…' :
              pod.status === 'queued'  ? 'Queued…' :
+             pod.status === 'reviewing' ? 'Manager reviewing worker output…' :
              pod.status === 'running' ? 'Starting…' : 'No output.'}
           </div>
         )}

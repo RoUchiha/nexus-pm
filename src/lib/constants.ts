@@ -14,6 +14,7 @@ export const STATUS_META: Record<PodStatus, { label: string; color: string; puls
   queued:    { label: 'Queued',    color: '#484f58', pulse: false },
   waiting:   { label: 'Waiting',   color: '#d29922', pulse: true  },
   running:   { label: 'Running',   color: '#58a6ff', pulse: true  },
+  reviewing: { label: 'Reviewing', color: '#bc8cff', pulse: true  },
   completed: { label: 'Done',      color: '#3fb950', pulse: false },
   failed:    { label: 'Failed',    color: '#f85149', pulse: false },
 };

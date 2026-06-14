@@ -3,7 +3,7 @@
 ## Repo
 **https://github.com/RoUchiha/nexus-pm**  
 Local: `C:\Users\Roshaan\Documents\nexus-pm`  
-Dev server: `npm install && npm run dev` → http://localhost:3000  
+Dev server: `npm install && npm run dev` → http://localhost:5173
 **Live demo: https://rouchiha.github.io/nexus-pm/** (GitHub Pages, auto-deploys on push to main)
 
 ---
@@ -23,7 +23,7 @@ idle → spec_drafting → deploying → executing → verifying → synthesis �
 |---|---|
 | `spec_drafting` | NEXUS Manager writes `MissionSpec` + pod plan in one JSON call |
 | `deploying` | Pod state initialized, brief visual pause |
-| `executing` | Pods run in DAG-ordered **waves**. After each wave, NEXUS Manager reviews outputs and issues directives to next-wave pods (manager-as-SSOT). Live streaming, spec-locked |
+| `executing` | Pods run in DAG-ordered **waves**. After each wave, NEXUS Manager reviews outputs and issues directives to next-wave pods (manager-as-SSOT). Live streaming, spec-locked. In company-worker mode, each pod waits for a connected worker agent to claim, submit, and pass manager review |
 | `verifying` | Adversarial Verifier (separate model role from pods) audits every VC |
 | `synthesis` | Executive report with compliance score, deliverables, roadmap |
 
@@ -42,6 +42,7 @@ src/
     bus.ts                ← parseBusMessages() — all bus tag types including report + directive
     prompts.ts            ← specDraftingSystem/User, podSystem (accepts managerDirectives),
                              verificationSystem/User, managerWaveCheckSystem/User,
+                             workerHandoffPrompt, workerReviewSystem/User,
                              coordinationSystem/User, synthesisSystem/User
     security.ts           ← sanitizeInput, validateMission, validateApiKey, truncateForContext,
                              generateSessionId
@@ -65,6 +66,8 @@ src/
     PodCard.tsx           ← streaming output, VC badges, provider label, spec responsibility
     ProvidersPanel.tsx    ← collapsed bar + expanded grid, per-provider toggle/key/model selectors
                              (manager + pod + verifier model per provider)
+    WorkerAgentsPanel.tsx ← company worker-agent roster, worker routing toggle, pod claim,
+                             handoff packet, output submission, manager revision display
     MessageBusPanel.tsx   ← live bus feed, auto-scroll
     DiscoveryPanel.tsx    ← analysis, resources, risks, pod plan with VC assignments
     SynthesisPanel.tsx    ← compliance score, deliverables, roadmap, risks, next steps,
@@ -101,7 +104,7 @@ interface VerificationResult { overallCompliance: 0-1, vcResults, violations, sp
 
 interface Pod extends PodBlueprint {
   status: PodStatus, output, logs, startTime, endTime, retries
-  usedProvider?, vcCompliance?: Record<string, VCStatus>
+  usedProvider?, assignedWorkerAgentId?, vcCompliance?: Record<string, VCStatus>
 }
 
 interface PodBlueprint { id, name, role, priority, dependencies, deliverable, context, vcIds, responsibility }
@@ -109,7 +112,12 @@ interface PodBlueprint { id, name, role, priority, dependencies, deliverable, co
 // Activity log — every agent action recorded with reasoning
 type ActivityAction =
   | 'spec_drafted' | 'pod_started' | 'pod_completed' | 'pod_failed'
+  | 'worker_agent_claimed' | 'worker_submission_received'
+  | 'worker_submission_approved' | 'worker_revision_requested'
   | 'manager_directive' | 'verification_result' | 'coordination_correction' | 'synthesis_complete'
+
+interface WorkerAgentConnection { id, name, ownerName, capabilities, connectionNotes, enabled, createdAt }
+interface WorkerPodAssignment { podId, workerAgentId?, status, handoffPrompt?, submittedOutput?, review? }
 
 interface ActivityLogEntry {
   id, timestamp, agentId, agentName, phase: AppPhase, action: ActivityAction
@@ -126,6 +134,7 @@ type ModelRole = 'manager' | 'pod' | 'verifier'
 interface NexusState {
   phase, mission, sessionId, spec, discovery, pods, bus,
   verification, coordination, synthesis,
+  workerMode, workerAgents, workerAssignments,
   activityLog: ActivityLogEntry[],   // ← added
   error, startTime
 }
@@ -175,13 +184,18 @@ podOutputsRef        Map<podId, string>   // source of truth for pod outputs
 busMessagesRef       BusMessage[]         // latest bus snapshot for pod prompts
 busDedupeRef         Set<string>          // prevents duplicate bus messages
 managerDirectivesRef Map<podId, string[]> // directives from manager wave checks
+workerResolversRef   Map<podId, resolver> // pauses DAG waves for company-worker submissions
+workerRunContextRef  { mission, spec, managerProviders, signal } // manager review context
 
 // Flow in runMission():
 1. jsonWithFallback → RawSpecResult → build MissionSpec + DiscoveryResult
+   - If company-worker mode is enabled, connected worker agents are included in spec drafting context
 2. computeWaves(pods) → string[][] — groups pods by DAG dependency level
 3. For each wave:
-   a. Promise.all(wave pods) via executePod() with managerDirectives injected
-   b. After wave (not last): jsonWithFallback(managerProviders) → WaveCheckResult
+   a. Autonomous mode: Promise.all(wave pods) via executePod() with managerDirectives injected
+   b. Company-worker mode: executeWorkerPod() creates an assignment and waits until
+      claimWorkerPod() + submitWorkerPodOutput() passes manager review
+   c. After wave (not last): jsonWithFallback(managerProviders) → WaveCheckResult
       → store directives in managerDirectivesRef, emit [DIRECTIVE] bus messages
 4. jsonWithFallback(verifierProviders) → VerificationResult
 5. jsonWithFallback(managerProviders) → CoordinationResult

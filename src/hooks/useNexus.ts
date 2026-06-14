@@ -2,6 +2,8 @@ import { useReducer, useRef, useCallback } from 'react';
 import type {
   NexusState, Pod, BusMessage, AppPhase, PodBlueprint,
   ProviderConfig, MissionSpec, VerificationResult, ActivityLogEntry, ActivityAction,
+  WorkerAgentConnection, WorkerMode, WorkerPodAssignment, WorkerReviewResult,
+  WorkerRunOptions,
 } from '../types';
 import { parseBusMessages } from '../lib/bus';
 import {
@@ -11,6 +13,7 @@ import {
   coordinationSystem, coordinationUser,
   synthesisSystem, synthesisUser,
   managerWaveCheckSystem, managerWaveCheckUser,
+  workerHandoffPrompt, workerReviewSystem, workerReviewUser,
 } from '../lib/prompts';
 import type { DiscoveryResult, CoordinationResult, SynthesisResult } from '../types';
 import { generateSessionId } from '../lib/security';
@@ -34,8 +37,11 @@ type Action =
   | { type: 'SET_VERIFICATION'; verification: VerificationResult }
   | { type: 'SET_COORDINATION'; coordination: CoordinationResult }
   | { type: 'SET_SYNTHESIS'; synthesis: SynthesisResult }
+  | { type: 'SET_WORKER_CONTEXT'; mode: WorkerMode; agents: WorkerAgentConnection[] }
+  | { type: 'UPSERT_WORKER_ASSIGNMENT'; assignment: WorkerPodAssignment }
   | { type: 'ADD_ACTIVITY_LOG'; entry: ActivityLogEntry }
   | { type: 'SET_ERROR'; error: string }
+  | { type: 'SET_POD_OUTPUT'; id: string; output: string }
   | { type: 'RESET' };
 
 function initialState(): NexusState {
@@ -50,6 +56,9 @@ function initialState(): NexusState {
     verification: null,
     coordination: null,
     synthesis: null,
+    workerMode: 'autonomous',
+    workerAgents: [],
+    workerAssignments: [],
     activityLog: [],
     error: null,
     startTime: null,
@@ -66,6 +75,22 @@ function reducer(state: NexusState, action: Action): NexusState {
     case 'SET_VERIFICATION': return { ...state, verification: action.verification };
     case 'SET_COORDINATION': return { ...state, coordination: action.coordination };
     case 'SET_SYNTHESIS':  return { ...state, synthesis: action.synthesis };
+    case 'SET_WORKER_CONTEXT':
+      return {
+        ...state,
+        workerMode: action.mode,
+        workerAgents: action.agents,
+        workerAssignments: [],
+      };
+    case 'UPSERT_WORKER_ASSIGNMENT': {
+      const exists = state.workerAssignments.some(a => a.podId === action.assignment.podId);
+      return {
+        ...state,
+        workerAssignments: exists
+          ? state.workerAssignments.map(a => a.podId === action.assignment.podId ? action.assignment : a)
+          : [...state.workerAssignments, action.assignment],
+      };
+    }
     case 'ADD_ACTIVITY_LOG':
       return { ...state, activityLog: [...state.activityLog, action.entry] };
     case 'SET_ERROR':      return { ...state, phase: 'error', error: action.error };
@@ -80,6 +105,11 @@ function reducer(state: NexusState, action: Action): NexusState {
         ...state,
         pods: state.pods.map(p => p.id === action.id ? { ...p, output: p.output + action.chunk } : p),
       };
+    case 'SET_POD_OUTPUT':
+      return {
+        ...state,
+        pods: state.pods.map(p => p.id === action.id ? { ...p, output: action.output } : p),
+      };
     case 'ADD_BUS_MESSAGES':
       return { ...state, bus: [...state.bus, ...action.messages] };
     default:
@@ -90,6 +120,12 @@ function reducer(state: NexusState, action: Action): NexusState {
 // ── Activity log helpers ──────────────────────────────────────────────────────
 
 let _logCounter = 0;
+let _busCounter = 0;
+
+function makeBusMessageId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${++_busCounter}`;
+}
+
 function makeLogEntry(
   agentId: string,
   agentName: string,
@@ -154,6 +190,30 @@ interface WaveCheckResult {
   };
 }
 
+interface WorkerResolver {
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+
+interface WorkerRunContext {
+  mission: string;
+  spec: MissionSpec;
+  managerProviders: ReturnType<typeof resolveProviders>;
+  signal: AbortSignal;
+}
+
+function normalizeWorkerReview(review: Partial<WorkerReviewResult> | null | undefined): WorkerReviewResult {
+  return {
+    approved: review?.approved ?? false,
+    summary: review?.summary ?? '',
+    managerGuidance: review?.managerGuidance ?? '',
+    requiredRevisions: Array.isArray(review?.requiredRevisions) ? review.requiredRevisions : [],
+    vcStatus: review?.vcStatus ?? {},
+    directives: Array.isArray(review?.directives) ? review.directives : [],
+    busSummary: review?.busSummary ?? '',
+  };
+}
+
 // ── DAG wave computation ──────────────────────────────────────────────────────
 
 function computeWaves(pods: PodBlueprint[]): string[][] {
@@ -176,21 +236,38 @@ function computeWaves(pods: PodBlueprint[]): string[][] {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export interface NexusActions {
-  runMission: (providerConfigs: ProviderConfig[], mission: string) => Promise<void>;
+  runMission: (providerConfigs: ProviderConfig[], mission: string, workerOptions?: WorkerRunOptions) => Promise<void>;
   runDemo: () => Promise<void>;
+  claimWorkerPod: (podId: string, workerAgentId: string) => void;
+  submitWorkerPodOutput: (podId: string, output: string) => Promise<void>;
   abort: () => void;
   reset: () => void;
 }
 
 export function useNexus(): [NexusState, NexusActions] {
   const [state, dispatch] = useReducer(reducer, undefined, initialState);
+  const stateRef = useRef<NexusState>(state);
+  stateRef.current = state;
   const abortRef = useRef<AbortController | null>(null);
   const podOutputsRef = useRef(new Map<string, string>());
   const busMessagesRef = useRef<BusMessage[]>([]);
   const busDedupeRef = useRef(new Set<string>());
   const managerDirectivesRef = useRef<Map<string, string[]>>(new Map()); // podId → directives
+  // Worker pods intentionally block their DAG wave until manager review accepts the submission.
+  const workerResolversRef = useRef(new Map<string, WorkerResolver>());
+  const workerRunContextRef = useRef<WorkerRunContext | null>(null);
 
-  const abort = useCallback(() => { abortRef.current?.abort(); }, []);
+  const rejectWaitingWorkerPods = useCallback((error: Error) => {
+    for (const resolver of workerResolversRef.current.values()) {
+      resolver.reject(error);
+    }
+    workerResolversRef.current.clear();
+  }, []);
+
+  const abort = useCallback(() => {
+    abortRef.current?.abort();
+    rejectWaitingWorkerPods(new Error('Mission aborted'));
+  }, [rejectWaitingWorkerPods]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
@@ -199,9 +276,11 @@ export function useNexus(): [NexusState, NexusActions] {
     busMessagesRef.current = [];
     busDedupeRef.current = new Set();
     managerDirectivesRef.current = new Map();
+    workerRunContextRef.current = null;
+    rejectWaitingWorkerPods(new Error('Mission reset'));
     clearSession();
     dispatch({ type: 'RESET' });
-  }, []);
+  }, [rejectWaitingWorkerPods]);
 
   const addLog = useCallback((entry: ActivityLogEntry) => {
     dispatch({ type: 'ADD_ACTIVITY_LOG', entry });
@@ -215,6 +294,23 @@ export function useNexus(): [NexusState, NexusActions] {
     }
   }, []);
 
+  const dependencyOutputsFor = useCallback((blueprint: PodBlueprint): Record<string, string> => {
+    const depOutputs: Record<string, string> = {};
+    for (const depId of blueprint.dependencies) {
+      depOutputs[depId] = podOutputsRef.current.get(depId) ?? '';
+    }
+    return depOutputs;
+  }, []);
+
+  const directiveTextFor = useCallback((podId: string): string | undefined => {
+    const myDirectives = managerDirectivesRef.current.get(podId) ?? [];
+    const allDirectives = managerDirectivesRef.current.get('ALL') ?? [];
+    const directives = [...allDirectives, ...myDirectives];
+    return directives.length > 0
+      ? directives.map(d => `- ${d}`).join('\n')
+      : undefined;
+  }, []);
+
   const executePod = useCallback(
     (
       blueprint: PodBlueprint,
@@ -224,17 +320,8 @@ export function useNexus(): [NexusState, NexusActions] {
       signal: AbortSignal,
     ): Promise<void> => {
       return new Promise<void>((resolve, reject) => {
-        const depOutputs: Record<string, string> = {};
-        for (const depId of blueprint.dependencies) {
-          depOutputs[depId] = podOutputsRef.current.get(depId) ?? '';
-        }
-
-        // Build manager directives string for this pod
-        const myDirectives = managerDirectivesRef.current.get(blueprint.id) ?? [];
-        const allDirectives = managerDirectivesRef.current.get('ALL') ?? [];
-        const directiveText = [...allDirectives, ...myDirectives].length > 0
-          ? [...allDirectives, ...myDirectives].map(d => `- ${d}`).join('\n')
-          : undefined;
+        const depOutputs = dependencyOutputsFor(blueprint);
+        const directiveText = directiveTextFor(blueprint.id);
 
         const podForPrompt: Pod = {
           ...blueprint,
@@ -313,19 +400,291 @@ export function useNexus(): [NexusState, NexusActions] {
         );
       });
     },
-    [emitBusFromText, addLog],
+    [dependencyOutputsFor, directiveTextFor, emitBusFromText, addLog],
   );
 
-  const runMission = useCallback(async (providerConfigs: ProviderConfig[], mission: string) => {
+  const executeWorkerPod = useCallback(
+    (blueprint: PodBlueprint, signal: AbortSignal): Promise<void> => {
+      return new Promise<void>((resolve, reject) => {
+        if (signal.aborted) {
+          reject(new Error('Mission aborted'));
+          return;
+        }
+
+        const now = Date.now();
+        workerResolversRef.current.set(blueprint.id, { resolve, reject });
+
+        dispatch({
+          type: 'UPDATE_POD',
+          id: blueprint.id,
+          patch: {
+            status: 'waiting',
+            startTime: now,
+            usedProvider: 'company-worker',
+          },
+        });
+        dispatch({
+          type: 'UPSERT_WORKER_ASSIGNMENT',
+          assignment: {
+            podId: blueprint.id,
+            status: 'unassigned',
+            createdAt: now,
+          },
+        });
+
+        addLog(makeLogEntry(
+          'nexus-manager',
+          'NEXUS Manager',
+          'executing',
+          'manager_directive',
+          blueprint.responsibility,
+          `Opened ${blueprint.name} for company worker-agent fulfillment. NEXUS will generate a handoff packet, vet the submission, and publish accepted work to the fleet.`,
+          blueprint.deliverable,
+        ));
+      });
+    },
+    [addLog],
+  );
+
+  const claimWorkerPod = useCallback((podId: string, workerAgentId: string) => {
+    const current = stateRef.current;
+    const pod = current.pods.find(p => p.id === podId);
+    const spec = current.spec;
+    const worker = current.workerAgents.find(a => a.id === workerAgentId);
+
+    if (!pod || !spec || !worker) return;
+
+    const handoffPrompt = workerHandoffPrompt(
+      worker,
+      pod,
+      current.mission,
+      spec,
+      dependencyOutputsFor(pod),
+      busMessagesRef.current,
+      directiveTextFor(pod.id),
+    );
+
+    const existing = current.workerAssignments.find(a => a.podId === podId);
+    dispatch({
+      type: 'UPSERT_WORKER_ASSIGNMENT',
+      assignment: {
+        ...(existing ?? {}),
+        podId,
+        workerAgentId,
+        status: 'assigned',
+        handoffPrompt,
+        createdAt: existing?.createdAt ?? Date.now(),
+        assignedAt: Date.now(),
+      },
+    });
+    dispatch({
+      type: 'UPDATE_POD',
+      id: podId,
+      patch: {
+        assignedWorkerAgentId: workerAgentId,
+        usedProvider: `worker:${worker.name}`,
+      },
+    });
+
+    addLog(makeLogEntry(
+      `worker:${worker.id}`,
+      worker.name,
+      'executing',
+      'worker_agent_claimed',
+      pod.responsibility,
+      `${worker.name} claimed ${pod.name}. NEXUS generated a spec-bound handoff packet with dependency outputs, manager directives, and bus context.`,
+      `Owner: ${worker.ownerName || 'unassigned'}; Capabilities: ${worker.capabilities || 'not specified'}`,
+    ));
+  }, [dependencyOutputsFor, directiveTextFor, addLog]);
+
+  const submitWorkerPodOutput = useCallback(async (podId: string, output: string): Promise<void> => {
+    const trimmedOutput = output.trim();
+    if (!trimmedOutput) return;
+
+    const context = workerRunContextRef.current;
+    const current = stateRef.current;
+    const pod = current.pods.find(p => p.id === podId);
+    const assignment = current.workerAssignments.find(a => a.podId === podId);
+    const worker = current.workerAgents.find(a => a.id === assignment?.workerAgentId);
+
+    if (!context || !pod || !assignment || !worker) return;
+
+    const submittedAt = Date.now();
+    dispatch({
+      type: 'UPDATE_POD',
+      id: podId,
+      patch: { status: 'reviewing' },
+    });
+    dispatch({
+      type: 'UPSERT_WORKER_ASSIGNMENT',
+      assignment: {
+        ...assignment,
+        status: 'reviewing',
+        submittedOutput: trimmedOutput,
+        submittedAt,
+      },
+    });
+    addLog(makeLogEntry(
+      `worker:${worker.id}`,
+      worker.name,
+      'executing',
+      'worker_submission_received',
+      pod.responsibility,
+      `${worker.name} submitted work for ${pod.name}. NEXUS is reviewing it against assigned VCs before releasing it to downstream agents.`,
+      `Submitted ${trimmedOutput.length} characters for ${pod.vcIds.join(', ') || 'unassigned VCs'}.`,
+    ));
+
+    try {
+      const { result } = await jsonWithFallback<WorkerReviewResult>(
+        context.managerProviders,
+        'manager',
+        workerReviewSystem(),
+        workerReviewUser(
+          worker,
+          pod,
+          context.spec,
+          dependencyOutputsFor(pod),
+          busMessagesRef.current,
+          trimmedOutput,
+        ),
+        context.signal,
+      );
+      if (context.signal.aborted) return;
+
+      const review = normalizeWorkerReview(result);
+      const reviewedAt = Date.now();
+
+      if (review.approved) {
+        // Approval is the handoff point: worker text becomes the official pod output.
+        podOutputsRef.current.set(podId, trimmedOutput);
+        dispatch({ type: 'SET_POD_OUTPUT', id: podId, output: trimmedOutput });
+        emitBusFromText(trimmedOutput, podId);
+
+        const managerMessages: BusMessage[] = [];
+        if (review.busSummary) {
+          managerMessages.push({
+            id: makeBusMessageId('worker_report'),
+            timestamp: Date.now(),
+            from: 'nexus-manager',
+            to: 'ALL',
+            type: 'report',
+            content: `${pod.name} accepted from ${worker.name}: ${review.busSummary}`,
+          });
+        }
+
+        for (const directive of review.directives) {
+          const target = directive.targetPodId || 'ALL';
+          const existingDirectives = managerDirectivesRef.current.get(target) ?? [];
+          managerDirectivesRef.current.set(target, [...existingDirectives, directive.instruction]);
+          managerMessages.push({
+            id: makeBusMessageId('worker_directive'),
+            timestamp: Date.now(),
+            from: 'nexus-manager',
+            to: target,
+            type: 'directive',
+            content: `${directive.instruction} (Reason: ${directive.reasoning})`,
+          });
+        }
+
+        if (managerMessages.length > 0) {
+          busMessagesRef.current = [...busMessagesRef.current, ...managerMessages];
+          dispatch({ type: 'ADD_BUS_MESSAGES', messages: managerMessages });
+        }
+
+        dispatch({
+          type: 'UPDATE_POD',
+          id: podId,
+          patch: {
+            status: 'completed',
+            endTime: Date.now(),
+            vcCompliance: review.vcStatus,
+          },
+        });
+        dispatch({
+          type: 'UPSERT_WORKER_ASSIGNMENT',
+          assignment: {
+            ...assignment,
+            status: 'accepted',
+            submittedOutput: trimmedOutput,
+            review,
+            submittedAt,
+            reviewedAt,
+          },
+        });
+
+        addLog(makeLogEntry(
+          'nexus-manager',
+          'NEXUS Manager',
+          'executing',
+          'worker_submission_approved',
+          pod.responsibility,
+          review.summary || `${pod.name} worker output accepted.`,
+          review.managerGuidance || `Accepted work from ${worker.name}; downstream directives: ${review.directives.length}.`,
+        ));
+
+        const resolver = workerResolversRef.current.get(podId);
+        resolver?.resolve();
+        workerResolversRef.current.delete(podId);
+        return;
+      }
+
+      dispatch({
+        type: 'UPDATE_POD',
+        id: podId,
+        patch: { status: 'waiting' },
+      });
+      dispatch({
+        type: 'UPSERT_WORKER_ASSIGNMENT',
+        assignment: {
+          ...assignment,
+          status: 'revision_requested',
+          submittedOutput: trimmedOutput,
+          review,
+          submittedAt,
+          reviewedAt,
+        },
+      });
+      addLog(makeLogEntry(
+        'nexus-manager',
+        'NEXUS Manager',
+        'executing',
+        'worker_revision_requested',
+        pod.responsibility,
+        review.summary || `${pod.name} needs revision before NEXUS can accept it.`,
+        review.requiredRevisions.join('\n') || review.managerGuidance,
+      ));
+    } catch (err) {
+      if (context.signal.aborted) return;
+      const error = err as Error;
+      dispatch({ type: 'SET_ERROR', error: error.message || 'Manager review failed' });
+      const resolver = workerResolversRef.current.get(podId);
+      resolver?.reject(error);
+      workerResolversRef.current.delete(podId);
+    }
+  }, [dependencyOutputsFor, emitBusFromText, addLog]);
+
+  const runMission = useCallback(async (
+    providerConfigs: ProviderConfig[],
+    mission: string,
+    workerOptions?: WorkerRunOptions,
+  ) => {
     abortRef.current?.abort();
+    rejectWaitingWorkerPods(new Error('New mission started'));
     const ac = new AbortController();
     abortRef.current = ac;
     podOutputsRef.current.clear();
     busMessagesRef.current = [];
     busDedupeRef.current = new Set();
     managerDirectivesRef.current = new Map();
+    workerRunContextRef.current = null;
+
+    const enabledWorkerAgents = (workerOptions?.agents ?? []).filter(agent => agent.enabled);
+    const workerMode: WorkerMode = workerOptions?.mode === 'company_workers' && enabledWorkerAgents.length > 0
+      ? 'company_workers'
+      : 'autonomous';
 
     dispatch({ type: 'SET_MISSION', mission });
+    dispatch({ type: 'SET_WORKER_CONTEXT', mode: workerMode, agents: enabledWorkerAgents });
     dispatch({ type: 'SET_PHASE', phase: 'spec_drafting' });
 
     const managerProviders = resolveProviders(providerConfigs, 'manager');
@@ -336,7 +695,11 @@ export function useNexus(): [NexusState, NexusActions] {
       dispatch({ type: 'SET_ERROR', error: 'No manager-capable provider configured. Enable at least one provider with a manager model.' });
       return;
     }
-    if (podProviders.length === 0) {
+    if (workerOptions?.mode === 'company_workers' && enabledWorkerAgents.length === 0) {
+      dispatch({ type: 'SET_ERROR', error: 'Company worker mode is enabled, but no enabled worker agents are connected.' });
+      return;
+    }
+    if (workerMode === 'autonomous' && podProviders.length === 0) {
       dispatch({ type: 'SET_ERROR', error: 'No pod-capable provider configured. Enable at least one provider with a pod model.' });
       return;
     }
@@ -349,7 +712,7 @@ export function useNexus(): [NexusState, NexusActions] {
         managerProviders,
         'manager',
         specDraftingSystem(),
-        specDraftingUser(mission),
+        specDraftingUser(mission, enabledWorkerAgents),
         ac.signal,
       );
       if (ac.signal.aborted) return;
@@ -412,6 +775,12 @@ export function useNexus(): [NexusState, NexusActions] {
 
       dispatch({ type: 'SET_SPEC', spec });
       dispatch({ type: 'SET_DISCOVERY', discovery });
+      workerRunContextRef.current = {
+        mission,
+        spec,
+        managerProviders,
+        signal: ac.signal,
+      };
 
       const vcCount = spec.verificationCriteria.length;
       const podCount = discovery.pods.length;
@@ -438,6 +807,10 @@ export function useNexus(): [NexusState, NexusActions] {
       dispatch({ type: 'SET_PHASE', phase: 'executing' });
 
       const waves = computeWaves(discovery.pods);
+      const scheduledPodCount = waves.reduce((count, wave) => count + wave.length, 0);
+      if (scheduledPodCount !== discovery.pods.length) {
+        throw new Error('Unable to schedule all pods. Check for circular or unknown pod dependencies in the manager plan.');
+      }
       const completedPromises = new Map<string, Promise<void>>();
 
       for (let waveIdx = 0; waveIdx < waves.length; waveIdx++) {
@@ -453,6 +826,10 @@ export function useNexus(): [NexusState, NexusActions] {
 
           const podExecution = Promise.all(depPromises).then(async () => {
             if (ac.signal.aborted) return;
+            if (workerMode === 'company_workers') {
+              await executeWorkerPod(bp, ac.signal);
+              return;
+            }
             dispatch({ type: 'UPDATE_POD', id: bp.id, patch: { status: 'waiting', startTime: Date.now() } });
             await executePod(bp, mission, spec, podProviders, ac.signal);
           });
@@ -497,7 +874,7 @@ export function useNexus(): [NexusState, NexusActions] {
             const directiveCount = waveCheck.directives?.length ?? 0;
             if (directiveCount > 0) {
               const directiveMsgs = (waveCheck.directives ?? []).map(d => ({
-                id: `msg_${Date.now()}_wave${waveIdx}`,
+                id: makeBusMessageId(`wave_${waveIdx + 1}`),
                 timestamp: Date.now(),
                 from: 'nexus-manager',
                 to: d.targetPodId,
@@ -511,7 +888,7 @@ export function useNexus(): [NexusState, NexusActions] {
             // Emit spec alerts as risk messages
             for (const alert of (waveCheck.specAlerts ?? [])) {
               const alertMsg = {
-                id: `msg_${Date.now()}_alert`,
+                id: makeBusMessageId('spec_alert'),
                 timestamp: Date.now(),
                 from: 'nexus-manager',
                 to: 'ALL',
@@ -633,26 +1010,30 @@ export function useNexus(): [NexusState, NexusActions] {
       ));
 
       dispatch({ type: 'SET_PHASE', phase: 'complete' });
+      workerRunContextRef.current = null;
 
     } catch (err) {
       if (ac.signal.aborted) return;
+      workerRunContextRef.current = null;
       dispatch({ type: 'SET_ERROR', error: (err as Error).message ?? 'Unknown error' });
     }
-  }, [executePod, addLog]);
+  }, [executePod, executeWorkerPod, rejectWaitingWorkerPods, addLog]);
 
   const runDemo = useCallback(async () => {
     abortRef.current?.abort();
+    rejectWaitingWorkerPods(new Error('Demo started'));
     const ac = new AbortController();
     abortRef.current = ac;
     podOutputsRef.current.clear();
     busMessagesRef.current = [];
     busDedupeRef.current = new Set();
     managerDirectivesRef.current = new Map();
+    workerRunContextRef.current = null;
     dispatch({ type: 'RESET' });
     // Small delay to let RESET settle before re-starting
     await new Promise(r => setTimeout(r, 50));
     await runDemoReplay(dispatch, ac.signal);
-  }, []);
+  }, [rejectWaitingWorkerPods]);
 
-  return [state, { runMission, runDemo, abort, reset }];
+  return [state, { runMission, runDemo, claimWorkerPod, submitWorkerPodOutput, abort, reset }];
 }

@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function Header({ phase, elapsed, onAbort, onReset }: Props) {
-  const running = ['discovery', 'deploying', 'executing', 'coordinating', 'synthesis'].includes(phase);
+  const running = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(phase);
   const meta = PHASE_META[phase];
 
   return (

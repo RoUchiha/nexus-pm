@@ -1,6 +1,6 @@
 # NEXUS — AI Project Manager
 
-Autonomous multi-agent orchestration built on **Spec-Driven Development (SDD)**. Give NEXUS a mission — it writes a formal spec, spins up specialized AI pods, runs them in parallel, verifies outputs against the spec, and synthesizes an executive report.
+Autonomous and company-assisted multi-agent orchestration built on **Spec-Driven Development (SDD)**. Give NEXUS a mission — it writes a formal spec, spins up specialized AI pods or connected worker agents, verifies outputs against the spec, and synthesizes an executive report.
 
 **[Live Demo →](https://rouchiha.github.io/nexus-pm/)** — no API key needed, click **▶ Watch Demo**
 
@@ -21,7 +21,7 @@ Mission → Spec Drafting → Pod Execution → Adversarial Verification → Syn
 ```
 
 1. **Spec Drafting** — NEXUS writes a formal `MissionSpec`: outcomes, scope boundaries, three-tier constraints (always/ask-first/never), and EARS-format Verification Criteria (VCs) assigned to specific pods
-2. **Pod Execution** — Pods run in DAG-ordered waves. After each wave, the NEXUS Manager reviews outputs and issues directives to next-wave pods, maintaining a single source of truth. Live streaming + inter-agent message bus
+2. **Pod Execution** — Pods run in DAG-ordered waves. After each wave, the NEXUS Manager reviews outputs and issues directives to next-wave pods, maintaining a single source of truth. Live streaming + inter-agent message bus. In company-worker mode, human workers can claim pods with their own agents, paste the output back into NEXUS, and receive manager review before downstream agents continue
 3. **Adversarial Verification** — A separate Verifier agent (distinct model from the implementing pods) audits every VC against pod outputs, flags violations and gaps
 4. **Coordination** — Manager scans for cross-pod misalignments and issues corrections
 5. **Synthesis** — Executive report with spec compliance score, deliverables, roadmap, and next steps
@@ -52,7 +52,7 @@ The demo completes in ~30 seconds and showcases the full pipeline including the 
 git clone https://github.com/RoUchiha/nexus-pm
 cd nexus-pm
 npm install
-npm run dev        # → http://localhost:3000
+npm run dev        # → http://localhost:5173
 ```
 
 Enter your API key in the Providers panel (UI, not a config file). Pick a free provider like **Groq** or run **Ollama** locally for zero-cost execution.
@@ -75,6 +75,23 @@ NEXUS tries **free → freemium → paid** automatically and falls back if a pro
 
 ---
 
+## Company worker agents
+
+Use **Company Worker Agents** when employees want to bring their own agents into the NEXUS workflow and manually fulfill tasks.
+
+1. Connect one or more worker agents with an owner and capability summary.
+2. Enable **Worker routing** before launching a mission.
+3. NEXUS drafts the spec and pod plan with the connected worker roster in context.
+4. Each DAG wave pauses for worker claims. NEXUS generates a handoff packet containing the binding spec, assigned VCs, dependency outputs, manager directives, and message-bus protocol.
+5. Workers run that packet in their own agent, paste the output back, and NEXUS reviews it before accepting the pod as complete.
+6. Accepted worker output is added to the official pod record, parsed for bus messages, summarized by the manager, and used by downstream pods, verification, coordination, and synthesis.
+
+The manager remains the single source of truth: worker submissions can be rejected with required revisions if they miss VCs, drift out of scope, or omit downstream contracts.
+
+See [docs/company-worker-agents.md](docs/company-worker-agents.md) for the full worker routing flow, handoff contents, review rules, and state model.
+
+---
+
 ## Security
 
 - **API keys never leave your browser session.** Stored in `sessionStorage` only — cleared when the tab closes, never written to disk or sent anywhere except directly to the provider's API endpoint.
@@ -93,12 +110,12 @@ src/
     api.ts                — streaming client with retry + abort
     providers.ts          — 7 providers, 3 model roles (manager/pod/verifier), priority fallback
     bus.ts                — inter-agent message bus parser (broadcast, signal, directive, report…)
-    prompts.ts            — all system prompts (spec-drafting, pod, verifier, wave-check, synthesis)
+    prompts.ts            — all system prompts (spec-drafting, pod, verifier, wave-check, worker review, synthesis)
     security.ts           — input validation, sanitization
     storage.ts            — sessionStorage only — no localStorage
     constants.ts          — colors, status metadata
   hooks/
-    useNexus.ts           — orchestration state machine (5-phase SDD pipeline + wave manager)
+    useNexus.ts           — orchestration state machine (5-phase SDD pipeline + wave/worker manager)
   demo/
     demoData.ts           — scripted mission spec, pod outputs, verification + synthesis results
     useDemoRunner.ts      — streaming replay engine (no API calls needed)
@@ -108,6 +125,7 @@ src/
     VerificationPanel.tsx  — adversarial audit results per VC
     PodCard.tsx            — streaming pod output with VC badges
     ProvidersPanel.tsx     — multi-provider key management (manager / pod / verifier models)
+    WorkerAgentsPanel.tsx  — company worker-agent roster, handoff, submission review
     MessageBusPanel.tsx    — real-time inter-agent messages
     ActivityFeedPanel.tsx  — agent action log (what each agent did, why, which mission portion)
     SynthesisPanel.tsx     — final report with compliance score

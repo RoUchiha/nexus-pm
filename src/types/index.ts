@@ -130,7 +130,7 @@ export type AppPhase =
   | 'complete'
   | 'error';
 
-export type PodStatus = 'queued' | 'waiting' | 'running' | 'completed' | 'failed';
+export type PodStatus = 'queued' | 'waiting' | 'running' | 'reviewing' | 'completed' | 'failed';
 
 export type MessageType = 'broadcast' | 'signal' | 'aligned' | 'risk' | 'spec_ref' | 'spec_conflict' | 'system' | 'report' | 'directive';
 
@@ -139,6 +139,15 @@ export type Priority = 'critical' | 'high' | 'medium' | 'low';
 export type Complexity = 'low' | 'medium' | 'high' | 'critical';
 
 export type ResourceStatus = 'available' | 'unknown' | 'required' | 'missing';
+
+export type WorkerMode = 'autonomous' | 'company_workers';
+
+export type WorkerAssignmentStatus =
+  | 'unassigned'
+  | 'assigned'
+  | 'reviewing'
+  | 'revision_requested'
+  | 'accepted';
 
 export interface PodBlueprint {
   id: string;
@@ -166,6 +175,7 @@ export interface Pod extends PodBlueprint {
   endTime?: number;
   retries: number;
   usedProvider?: string;
+  assignedWorkerAgentId?: string;
   vcCompliance?: Record<string, VCStatus>; // VC-001 → passed/failed/partial
 }
 
@@ -199,6 +209,50 @@ export interface CoordinationResult {
   corrections: Array<{ podId: string; task: string }>;
 }
 
+export interface WorkerAgentConnection {
+  id: string;
+  name: string;
+  ownerName: string;
+  capabilities: string;
+  connectionNotes: string;
+  enabled: boolean;
+  createdAt: number;
+}
+
+export interface WorkerDirective {
+  targetPodId: string;
+  instruction: string;
+  reasoning: string;
+}
+
+export interface WorkerReviewResult {
+  approved: boolean;
+  summary: string;
+  managerGuidance: string;
+  requiredRevisions: string[];
+  vcStatus: Record<string, VCStatus>;
+  directives: WorkerDirective[];
+  busSummary: string;
+}
+
+export interface WorkerPodAssignment {
+  podId: string;
+  workerAgentId?: string;
+  status: WorkerAssignmentStatus;
+  handoffPrompt?: string;
+  submittedOutput?: string;
+  review?: WorkerReviewResult;
+  createdAt: number;
+  assignedAt?: number;
+  submittedAt?: number;
+  reviewedAt?: number;
+}
+
+export interface WorkerRunOptions {
+  mode: WorkerMode;
+  agents: WorkerAgentConnection[];
+}
+
 export interface SynthesisResult {
   summary: string;
   deliverables: string[];
@@ -214,6 +268,10 @@ export type ActivityAction =
   | 'pod_started'
   | 'pod_completed'
   | 'pod_failed'
+  | 'worker_agent_claimed'
+  | 'worker_submission_received'
+  | 'worker_submission_approved'
+  | 'worker_revision_requested'
   | 'manager_directive'
   | 'verification_result'
   | 'coordination_correction'
@@ -242,6 +300,9 @@ export interface NexusState {
   verification: VerificationResult | null;
   coordination: CoordinationResult | null;
   synthesis: SynthesisResult | null;
+  workerMode: WorkerMode;
+  workerAgents: WorkerAgentConnection[];
+  workerAssignments: WorkerPodAssignment[];
   activityLog: ActivityLogEntry[];
   error: string | null;
   startTime: number | null;

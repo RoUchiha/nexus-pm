@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ProvidersPanel } from './components/ProvidersPanel';
+import { WorkerAgentsPanel } from './components/WorkerAgentsPanel';
 import { MissionInput } from './components/MissionInput';
 import { PhaseIndicator } from './components/PhaseIndicator';
 import { SpecPanel } from './components/SpecPanel';
@@ -12,17 +13,25 @@ import { SynthesisPanel } from './components/SynthesisPanel';
 import { ActivityFeedPanel } from './components/ActivityFeedPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useNexus } from './hooks/useNexus';
-import { loadProviderConfigs } from './lib/storage';
-import type { ProviderConfig } from './types';
+import {
+  loadProviderConfigs,
+  loadWorkerAgents,
+  loadWorkerMode,
+  saveWorkerAgents,
+  saveWorkerMode,
+} from './lib/storage';
+import type { ProviderConfig, WorkerAgentConnection, WorkerMode } from './types';
 
 export function App() {
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>(() => loadProviderConfigs());
+  const [workerAgents, setWorkerAgents] = useState<WorkerAgentConnection[]>(() => loadWorkerAgents());
+  const [workerMode, setWorkerMode] = useState<WorkerMode>(() => loadWorkerMode());
   const [elapsed, setElapsed] = useState<number | null>(null);
   const [state, actions] = useNexus();
 
   const {
     phase, mission, spec, discovery, pods, bus,
-    verification, coordination, synthesis, activityLog, error,
+    verification, coordination, synthesis, workerAssignments, activityLog, error,
   } = state;
 
   const isRunning = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(phase);
@@ -41,8 +50,18 @@ export function App() {
   }, [state.startTime, phase]);
 
   const handleMission = useCallback((m: string) => {
-    actions.runMission(providerConfigs, m);
-  }, [providerConfigs, actions]);
+    actions.runMission(providerConfigs, m, { mode: workerMode, agents: workerAgents });
+  }, [providerConfigs, workerMode, workerAgents, actions]);
+
+  const handleWorkerAgentsChange = useCallback((next: WorkerAgentConnection[]) => {
+    setWorkerAgents(next);
+    saveWorkerAgents(next);
+  }, []);
+
+  const handleWorkerModeChange = useCallback((next: WorkerMode) => {
+    setWorkerMode(next);
+    saveWorkerMode(next);
+  }, []);
 
   // Build VC status map from verification results
   const vcStatuses = verification
@@ -62,6 +81,17 @@ export function App() {
       />
 
       <ProvidersPanel configs={providerConfigs} onChange={setProviderConfigs} />
+      <WorkerAgentsPanel
+        agents={phase === 'idle' || state.workerAgents.length === 0 ? workerAgents : state.workerAgents}
+        mode={phase === 'idle' ? workerMode : state.workerMode}
+        phase={phase}
+        pods={pods}
+        assignments={workerAssignments}
+        onAgentsChange={handleWorkerAgentsChange}
+        onModeChange={handleWorkerModeChange}
+        onClaim={actions.claimWorkerPod}
+        onSubmit={actions.submitWorkerPodOutput}
+      />
 
       <main className="main">
 
