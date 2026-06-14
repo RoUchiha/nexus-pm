@@ -112,7 +112,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
         <div style={{ padding: '0 20px 20px' }}>
           <div style={{ fontSize: 11, color: 'var(--dim)', marginBottom: 14 }}>
             Free providers are tried first. NEXUS falls back to paid automatically if free fails.
-            API keys stored in sessionStorage only — cleared when tab closes.
+            Provider choices are saved for this tab. API keys stay in memory and are cleared on reload.
           </div>
 
           {(['free', 'freemium', 'paid'] as const).map(tier => (
@@ -225,9 +225,13 @@ export function ProvidersPanel({ configs, onChange }: Props) {
                             className="input"
                             placeholder="http://localhost:11434"
                             value={cfg.customBaseUrl ?? ''}
+                            maxLength={80}
                             onChange={e => update(def.id, { customBaseUrl: e.target.value || undefined })}
                             style={{ fontFamily: 'var(--font-mono)', fontSize: 11, padding: '5px 8px' }}
                           />
+                          <div style={{ fontSize: 10, color: 'var(--dim)', marginTop: 3 }}>
+                            Localhost only; port 11434.
+                          </div>
                         </div>
                       )}
 

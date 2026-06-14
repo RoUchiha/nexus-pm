@@ -1,5 +1,6 @@
 import type { NexusState, ProviderConfig, WorkerAgentConnection, WorkerMode } from '../types';
 import { defaultConfigs, PROVIDER_MAP } from './providers';
+import { sanitizeMetadataField } from './security';
 
 const SESSION_KEY = 'nexus_session';
 const PROVIDERS_KEY = 'nexus_providers';
@@ -7,11 +8,12 @@ const WORKER_AGENTS_KEY = 'nexus_worker_agents';
 const WORKER_MODE_KEY = 'nexus_worker_mode';
 
 // ── Provider configs ──────────────────────────────────────────────────────────
-// Stored in sessionStorage — API keys never written to disk
+// Stored in sessionStorage. API keys are intentionally stripped before storage.
 
 export function saveProviderConfigs(configs: ProviderConfig[]): void {
   try {
-    sessionStorage.setItem(PROVIDERS_KEY, JSON.stringify(configs));
+    const safeConfigs = configs.map(config => ({ ...config, apiKey: '' }));
+    sessionStorage.setItem(PROVIDERS_KEY, JSON.stringify(safeConfigs));
   } catch { /* quota — best effort */ }
 }
 
@@ -19,7 +21,7 @@ export function loadProviderConfigs(): ProviderConfig[] {
   try {
     const raw = sessionStorage.getItem(PROVIDERS_KEY);
     if (!raw) return defaultConfigs();
-    const parsed = JSON.parse(raw) as ProviderConfig[];
+    const parsed = (JSON.parse(raw) as ProviderConfig[]).map(config => ({ ...config, apiKey: '' }));
     // Merge with defaults to handle new providers added in updates
     const defaults = defaultConfigs();
     const existingIds = new Set(parsed.map(c => c.providerId));
@@ -48,7 +50,14 @@ export function clearProviderConfigs(): void {
 
 export function saveWorkerAgents(agents: WorkerAgentConnection[]): void {
   try {
-    sessionStorage.setItem(WORKER_AGENTS_KEY, JSON.stringify(agents));
+    const safeAgents = agents.map(agent => ({
+      ...agent,
+      name: sanitizeMetadataField(agent.name),
+      ownerName: sanitizeMetadataField(agent.ownerName),
+      capabilities: sanitizeMetadataField(agent.capabilities),
+      connectionNotes: sanitizeMetadataField(agent.connectionNotes),
+    }));
+    sessionStorage.setItem(WORKER_AGENTS_KEY, JSON.stringify(safeAgents));
   } catch { /* quota — best effort */ }
 }
 
@@ -59,8 +68,11 @@ export function loadWorkerAgents(): WorkerAgentConnection[] {
     const parsed = JSON.parse(raw) as WorkerAgentConnection[];
     return parsed.map(agent => ({
       ...agent,
+      name: sanitizeMetadataField(agent.name ?? ''),
+      ownerName: sanitizeMetadataField(agent.ownerName ?? ''),
+      capabilities: sanitizeMetadataField(agent.capabilities ?? ''),
+      connectionNotes: sanitizeMetadataField(agent.connectionNotes ?? ''),
       enabled: agent.enabled ?? true,
-      connectionNotes: agent.connectionNotes ?? '',
       createdAt: agent.createdAt ?? Date.now(),
     }));
   } catch {

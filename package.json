@@ -1,13 +1,14 @@
 {
   "name": "nexus-pm",
   "version": "1.0.0",
-  "description": "NEXUS AI Project Manager — autonomous agent orchestration",
+  "description": "NEXUS AI Project Manager - autonomous agent orchestration",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -16,8 +17,8 @@
   "devDependencies": {
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
+    "@vitejs/plugin-react": "^6.0.2",
     "typescript": "^5.4.5",
-    "vite": "^5.3.1"
+    "vite": "^8.0.16"
   }
 }

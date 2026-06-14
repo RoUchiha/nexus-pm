@@ -89,12 +89,14 @@ Use **Company Worker Agents** when employees want to bring their own agents into
 The manager remains the single source of truth: worker submissions can be rejected with required revisions if they miss VCs, drift out of scope, or omit downstream contracts.
 
 See [docs/company-worker-agents.md](docs/company-worker-agents.md) for the full worker routing flow, handoff contents, review rules, and state model.
+See [docs/production-readiness.md](docs/production-readiness.md) for the security controls, validation checklist, and enterprise deployment boundaries.
 
 ---
 
 ## Security
 
-- **API keys never leave your browser session.** Stored in `sessionStorage` only — cleared when the tab closes, never written to disk or sent anywhere except directly to the provider's API endpoint.
+- **API keys are memory-only.** Provider choices are saved for the current tab, but API keys are stripped before `sessionStorage` writes and are cleared on reload or tab close.
+- **Provider calls are allowlisted.** The CSP allows only supported provider API domains plus local Ollama on `localhost:11434` / `127.0.0.1:11434`.
 - **No backend.** The app calls provider APIs directly from the browser.
 - **No `.env` required.** You can optionally set `VITE_ANTHROPIC_API_KEY` in a local `.env` file (gitignored) to pre-fill the Anthropic key, but all keys can be entered through the UI.
 - **Content Security Policy** in `index.html` whitelists only known provider API domains.
@@ -107,12 +109,12 @@ See [docs/company-worker-agents.md](docs/company-worker-agents.md) for the full 
 src/
   types/index.ts          — all TypeScript interfaces (MissionSpec, Pod, VC, ActivityLogEntry…)
   lib/
-    api.ts                — streaming client with retry + abort
-    providers.ts          — 7 providers, 3 model roles (manager/pod/verifier), priority fallback
+    api.ts                — provider streaming type contracts
+    providers.ts          — 7 providers, 3 model roles (manager/pod/verifier), priority fallback, retry + abort
     bus.ts                — inter-agent message bus parser (broadcast, signal, directive, report…)
     prompts.ts            — all system prompts (spec-drafting, pod, verifier, wave-check, worker review, synthesis)
     security.ts           — input validation, sanitization
-    storage.ts            — sessionStorage only — no localStorage
+    storage.ts            — tab-scoped provider/worker settings; API keys stripped before storage
     constants.ts          — colors, status metadata
   hooks/
     useNexus.ts           — orchestration state machine (5-phase SDD pipeline + wave/worker manager)

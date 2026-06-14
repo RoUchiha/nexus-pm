@@ -16,7 +16,7 @@ import {
   workerHandoffPrompt, workerReviewSystem, workerReviewUser,
 } from '../lib/prompts';
 import type { DiscoveryResult, CoordinationResult, SynthesisResult } from '../types';
-import { generateSessionId } from '../lib/security';
+import { MAX_WORKER_OUTPUT_LENGTH, clampText, generateSessionId } from '../lib/security';
 import { clearSession } from '../lib/storage';
 import { resolveProviders, jsonWithFallback, streamWithFallback } from '../lib/providers';
 import { runDemoReplay } from '../demo/useDemoRunner';
@@ -498,7 +498,7 @@ export function useNexus(): [NexusState, NexusActions] {
   }, [dependencyOutputsFor, directiveTextFor, addLog]);
 
   const submitWorkerPodOutput = useCallback(async (podId: string, output: string): Promise<void> => {
-    const trimmedOutput = output.trim();
+    const trimmedOutput = clampText(output, MAX_WORKER_OUTPUT_LENGTH);
     if (!trimmedOutput) return;
 
     const context = workerRunContextRef.current;

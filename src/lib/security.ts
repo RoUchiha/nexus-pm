@@ -1,19 +1,33 @@
 const MAX_MISSION_LENGTH = 2000;
 const MAX_CONTEXT_LENGTH = 8000;
+export const MAX_WORKER_AGENT_FIELD_LENGTH = 240;
+export const MAX_WORKER_OUTPUT_LENGTH = 60000;
 
 const DANGEROUS_PATTERNS = [
-  /<script/gi,
-  /javascript:/gi,
-  /data:text\/html/gi,
-  /on\w+\s*=/gi,
+  /<script/i,
+  /javascript:/i,
+  /data:text\/html/i,
+  /on\w+\s*=/i,
 ];
 
 export function sanitizeInput(raw: string): string {
   let s = raw.trim().replace(/\0/g, '');
   for (const pattern of DANGEROUS_PATTERNS) {
-    s = s.replace(pattern, '[removed]');
+    s = s.replace(new RegExp(pattern.source, 'gi'), '[removed]');
   }
   return s.slice(0, MAX_MISSION_LENGTH);
+}
+
+export function clampText(raw: string, maxLength: number): string {
+  return raw.replace(/\0/g, '').trim().slice(0, maxLength);
+}
+
+export function sanitizeMetadataField(raw: string): string {
+  let s = clampText(raw, MAX_WORKER_AGENT_FIELD_LENGTH);
+  for (const pattern of DANGEROUS_PATTERNS) {
+    s = s.replace(new RegExp(pattern.source, 'gi'), '[removed]');
+  }
+  return s;
 }
 
 export function validateMission(mission: string): { valid: boolean; error?: string } {
@@ -45,6 +59,29 @@ export function validateApiKey(key: string): { valid: boolean; error?: string } 
 export function truncateForContext(text: string, maxLength = MAX_CONTEXT_LENGTH): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength) + '\n…[truncated]';
+}
+
+export function normalizeLocalProviderBaseUrl(raw: string): string {
+  const value = raw.trim();
+  if (!value) return 'http://localhost:11434';
+
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('Local provider URL must be a valid URL.');
+  }
+
+  const host = url.hostname.toLowerCase();
+  const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+  const pathIsRoot = url.pathname === '/' || url.pathname === '';
+  const port = url.port || '80';
+
+  if (url.protocol !== 'http:' || !isLoopback || port !== '11434' || !pathIsRoot || url.search || url.hash) {
+    throw new Error('Local provider URL must be http://localhost:11434 or http://127.0.0.1:11434.');
+  }
+
+  return url.origin;
 }
 
 export function generateSessionId(): string {

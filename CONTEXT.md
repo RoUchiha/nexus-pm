@@ -36,9 +36,9 @@ src/
   types/index.ts          ← ALL types: MissionSpec, Pod, VC, VerificationResult, ProviderConfig,
                              ActivityLogEntry, ActivityAction, AppPhase…
   lib/
-    api.ts                ← claudeStream() + StreamCallbacks interface — retry/backoff/abort
+    api.ts                ← provider streaming type contracts
     providers.ts          ← 7 providers + resolveProviders() + streamWithFallback() +
-                             jsonWithFallback() — supports 3 model roles: manager/pod/verifier
+                             jsonWithFallback() — supports 3 model roles; owns retry/backoff/abort
     bus.ts                ← parseBusMessages() — all bus tag types including report + directive
     prompts.ts            ← specDraftingSystem/User, podSystem (accepts managerDirectives),
                              verificationSystem/User, managerWaveCheckSystem/User,
@@ -46,8 +46,8 @@ src/
                              coordinationSystem/User, synthesisSystem/User
     security.ts           ← sanitizeInput, validateMission, validateApiKey, truncateForContext,
                              generateSessionId
-    storage.ts            ← sessionStorage only: saveProviderConfigs/loadProviderConfigs
-                             (backfills verifierModel on load), saveSession/loadSession
+    storage.ts            ← tab-scoped provider/worker settings; strips API keys before
+                             sessionStorage writes; backfills verifierModel on load
     constants.ts          ← PRIORITY_COLORS, STATUS_META, PHASE_META, BUS_TYPE_META
                              (includes report + directive), VC_STATUS_META, VC_CATEGORY_COLORS
   hooks/
@@ -266,12 +266,19 @@ The built-in demo replays a scripted mission without any API keys:
 
 ---
 
+## Security/readiness docs
+- `docs/company-worker-agents.md` documents worker-agent handoff, review, and state flow
+- `docs/production-readiness.md` documents threat model, implemented controls, validation checklist, and enterprise boundaries
+
+---
+
 ## Security model
-- API keys → `sessionStorage` only, cleared on tab close, never on disk
+- API keys stay in memory only; provider choices persist without secrets
+- CSP allowlists provider APIs and local Ollama on port 11434; blocks inline scripts, objects, frames, and forms
 - `.env` is gitignored; optional `VITE_ANTHROPIC_API_KEY` for pre-fill only
 - All input through `sanitizeInput()` + `validateMission()` before API
 - `truncateForContext()` caps system prompts at 6000 chars, messages at 4000
-- CSP in `index.html` whitelists: anthropic, groq, openai, googleapis, mistral, together, localhost:11434
+- CSP in `index.html` whitelists: anthropic, groq, openai, googleapis, mistral, together, localhost:11434, 127.0.0.1:11434
 - No eval(), no dynamic code
 
 ---
@@ -301,7 +308,7 @@ The built-in demo replays a scripted mission without any API keys:
 
 ## Dev commands
 ```bash
-npm run dev        # Vite dev server → localhost:3000
+npm run dev        # Vite dev server → localhost:5173
 npm run build      # tsc + vite build
 npm run typecheck  # tsc --noEmit only
 ```

@@ -1,6 +1,6 @@
 import type { ProviderDefinition, ProviderConfig, ResolvedProvider } from '../types';
 import type { StreamCallbacks, ApiMessage } from './api';
-import { truncateForContext } from './security';
+import { normalizeLocalProviderBaseUrl, truncateForContext } from './security';
 
 // ── Provider registry ─────────────────────────────────────────────────────────
 
@@ -159,6 +159,13 @@ export function resolveProviders(
       const def = PROVIDER_MAP.get(c.providerId);
       if (!def) return false;
       if (def.apiKeyRequired && !c.apiKey.trim()) return false;
+      if (def.id === 'ollama') {
+        try {
+          normalizeLocalProviderBaseUrl(c.customBaseUrl || def.baseUrl);
+        } catch {
+          return false;
+        }
+      }
       return true;
     })
     .map(c => ({ definition: PROVIDER_MAP.get(c.providerId)!, config: c }))
@@ -191,6 +198,10 @@ function retryMs(attempt: number): number {
 }
 function sleep(ms: number): Promise<void> {
   return new Promise(r => setTimeout(r, ms));
+}
+function retryAfterMs(value: string | null): number {
+  const seconds = Number.parseInt(value ?? '5', 10);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 5000;
 }
 
 // ── Anthropic ─────────────────────────────────────────────────────────────────
@@ -228,12 +239,13 @@ async function streamAnthropic(
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         const msg = body?.error?.message ?? `HTTP ${res.status}`;
-        if (res.status === 429) { await sleep(parseInt(res.headers.get('retry-after') ?? '5', 10) * 1000); continue; }
+        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after'))); continue; }
         if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
         throw new Error(msg);
       }
 
-      const reader = res.body!.getReader();
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Provider returned an empty response body.');
       const dec = new TextDecoder();
       let full = '', buf = '';
       while (true) {
@@ -297,12 +309,13 @@ async function streamOpenAI(
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         const msg = body?.error?.message ?? `HTTP ${res.status}`;
-        if (res.status === 429) { await sleep(parseInt(res.headers.get('retry-after') ?? '5', 10) * 1000); continue; }
+        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after'))); continue; }
         if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
         throw new Error(msg);
       }
 
-      const reader = res.body!.getReader();
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Provider returned an empty response body.');
       const dec = new TextDecoder();
       let full = '', buf = '';
       while (true) {
@@ -342,7 +355,7 @@ async function streamGemini(
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  const url = `${baseUrl}/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+  const url = `${baseUrl}/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (signal?.aborted) { callbacks.onError(new Error('Aborted')); return; }
@@ -354,7 +367,7 @@ async function streamGemini(
 
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents,
           systemInstruction: { parts: [{ text: truncateForContext(system, 6000) }] },
@@ -366,12 +379,13 @@ async function streamGemini(
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         const msg = body?.error?.message ?? `HTTP ${res.status}`;
-        if (res.status === 429) { await sleep(parseInt(res.headers.get('retry-after') ?? '5', 10) * 1000); continue; }
+        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after'))); continue; }
         if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
         throw new Error(msg);
       }
 
-      const reader = res.body!.getReader();
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('Provider returned an empty response body.');
       const dec = new TextDecoder();
       let full = '', buf = '';
       while (true) {
@@ -411,7 +425,9 @@ export async function streamWithProvider(
   signal?: AbortSignal,
 ): Promise<void> {
   const { definition, config } = provider;
-  const baseUrl = config.customBaseUrl || definition.baseUrl;
+  const baseUrl = definition.id === 'ollama'
+    ? normalizeLocalProviderBaseUrl(config.customBaseUrl || definition.baseUrl)
+    : definition.baseUrl;
   const apiKey = config.apiKey;
 
   switch (definition.format) {

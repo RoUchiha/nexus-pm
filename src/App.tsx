@@ -20,6 +20,7 @@ import {
   saveWorkerAgents,
   saveWorkerMode,
 } from './lib/storage';
+import { resolveProviders } from './lib/providers';
 import type { ProviderConfig, WorkerAgentConnection, WorkerMode } from './types';
 
 export function App() {
@@ -70,6 +71,11 @@ export function App() {
 
   const running = pods.filter(p => p.status === 'running').length;
   const done    = pods.filter(p => p.status === 'completed').length;
+  const hasRunnableConfig =
+    resolveProviders(providerConfigs, 'manager').length > 0 &&
+    (workerMode === 'company_workers'
+      ? workerAgents.some(agent => agent.enabled)
+      : resolveProviders(providerConfigs, 'pod').length > 0);
 
   return (
     <div className="app">
@@ -101,7 +107,7 @@ export function App() {
             onSubmit={handleMission}
             onDemo={actions.runDemo}
             disabled={isRunning}
-            hasApiKey={true}
+            hasApiKey={hasRunnableConfig}
           />
         )}
 

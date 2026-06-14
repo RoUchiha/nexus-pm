@@ -6,6 +6,12 @@ import type {
   WorkerMode,
   WorkerPodAssignment,
 } from '../types';
+import {
+  MAX_WORKER_AGENT_FIELD_LENGTH,
+  MAX_WORKER_OUTPUT_LENGTH,
+  clampText,
+  sanitizeMetadataField,
+} from '../lib/security';
 
 interface Props {
   agents: WorkerAgentConnection[];
@@ -61,7 +67,7 @@ export function WorkerAgentsPanel({
   };
 
   const addAgent = () => {
-    const name = draftName.trim();
+    const name = sanitizeMetadataField(draftName);
     if (!name) return;
 
     setAgents([
@@ -69,9 +75,9 @@ export function WorkerAgentsPanel({
       {
         id: `worker_${Date.now()}`,
         name,
-        ownerName: draftOwner.trim(),
-        capabilities: draftCapabilities.trim(),
-        connectionNotes: draftNotes.trim(),
+        ownerName: sanitizeMetadataField(draftOwner),
+        capabilities: sanitizeMetadataField(draftCapabilities),
+        connectionNotes: sanitizeMetadataField(draftNotes),
         enabled: true,
         createdAt: Date.now(),
       },
@@ -106,7 +112,7 @@ export function WorkerAgentsPanel({
   };
 
   const submitOutput = async (podId: string) => {
-    const output = outputDrafts[podId]?.trim() ?? '';
+    const output = clampText(outputDrafts[podId] ?? '', MAX_WORKER_OUTPUT_LENGTH);
     if (!output) return;
 
     setSubmittingPods(prev => new Set(prev).add(podId));
@@ -184,24 +190,28 @@ export function WorkerAgentsPanel({
                 className="input"
                 placeholder="Agent name"
                 value={draftName}
+                maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
                 onChange={event => setDraftName(event.target.value)}
               />
               <input
                 className="input"
                 placeholder="Worker owner"
                 value={draftOwner}
+                maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
                 onChange={event => setDraftOwner(event.target.value)}
               />
               <input
                 className="input worker-capabilities-input"
                 placeholder="Capabilities"
                 value={draftCapabilities}
+                maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
                 onChange={event => setDraftCapabilities(event.target.value)}
               />
               <input
                 className="input worker-notes-input"
                 placeholder="Connection notes"
                 value={draftNotes}
+                maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
                 onChange={event => setDraftNotes(event.target.value)}
               />
               <button className="btn btn-primary" onClick={addAgent} disabled={!draftName.trim()}>
@@ -301,9 +311,10 @@ export function WorkerAgentsPanel({
                               className="input worker-output-input"
                               placeholder="Paste the worker agent output for manager review"
                               value={outputDrafts[assignment.podId] ?? assignment.submittedOutput ?? ''}
+                              maxLength={MAX_WORKER_OUTPUT_LENGTH}
                               onChange={event => setOutputDrafts(prev => ({
                                 ...prev,
-                                [assignment.podId]: event.target.value,
+                                [assignment.podId]: clampText(event.target.value, MAX_WORKER_OUTPUT_LENGTH),
                               }))}
                               disabled={assignment.status === 'reviewing'}
                             />

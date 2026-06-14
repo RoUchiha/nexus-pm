@@ -74,7 +74,7 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
 
       {!hasApiKey && (
         <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 6 }}>
-          ⚠ Enter your Anthropic API key above to launch missions
+          ⚠ Configure a manager-capable provider, or connect worker agents for worker routing.
         </div>
       )}
 
