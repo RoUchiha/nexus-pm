@@ -251,6 +251,78 @@ export interface WorkerPodAssignment {
 export interface WorkerRunOptions {
   mode: WorkerMode;
   agents: WorkerAgentConnection[];
+  connectors?: ConnectorConfig[];
+}
+
+// Connector control plane. Credentials are memory-only and must never be
+// persisted, logged, or included in model prompts.
+export type ConnectorKind = 'llm' | 'database' | 'repository' | 'agent' | 'api';
+export type ConnectorAuthType = 'none' | 'api_key' | 'bearer' | 'oauth2' | 'basic' | 'connection_string';
+export type ConnectorStatus = 'draft' | 'checking' | 'ready' | 'degraded' | 'blocked' | 'paused';
+export type ConnectorControlMode = 'autonomous' | 'supervised' | 'manual';
+export type ConnectorSeverity = 'info' | 'warning' | 'error';
+
+export interface ConnectorDefinition {
+  id: string;
+  name: string;
+  kind: ConnectorKind;
+  description: string;
+  authTypes: ConnectorAuthType[];
+  capabilities: string[];
+  serverSideOnly: boolean;
+  endpointPlaceholder: string;
+  requiredScopes?: string[];
+}
+
+export interface ConnectorCredentials {
+  apiKey?: string;
+  token?: string;
+  username?: string;
+  password?: string;
+  connectionString?: string;
+}
+
+export interface ConnectorIssue {
+  code: string;
+  severity: ConnectorSeverity;
+  title: string;
+  detail: string;
+  remediation: string[];
+  retriable: boolean;
+}
+
+export interface ConnectorConfig {
+  id: string;
+  definitionId: string;
+  name: string;
+  endpoint: string;
+  authType: ConnectorAuthType;
+  credentials: ConnectorCredentials;
+  scopes: string[];
+  enabled: boolean;
+  approved: boolean;
+  controlMode: ConnectorControlMode;
+  status: ConnectorStatus;
+  issues: ConnectorIssue[];
+  diagnostics: string[];
+  steeringNotes: string;
+  createdAt: number;
+  updatedAt: number;
+  lastCheckAt?: number;
+}
+
+export interface ConnectorRoute {
+  capability: string;
+  connectorId: string;
+  connectorName: string;
+  reason: string;
+  requiresApproval: boolean;
+}
+
+export interface ConnectorRoutingPlan {
+  routes: ConnectorRoute[];
+  unresolvedCapabilities: string[];
+  generatedAt: number;
 }
 
 export interface SynthesisResult {

@@ -193,15 +193,100 @@ export function defaultConfigs(): ProviderConfig[] {
 // ── Streaming implementations ─────────────────────────────────────────────────
 
 const MAX_RETRIES = 3;
+const MAX_RETRY_DELAY_MS = 30_000;
+const PROVIDER_TIMEOUT_MS = 60_000;
+export const MAX_STREAM_RESPONSE_LENGTH = 1_000_000;
 function retryMs(attempt: number): number {
   return 1000 * Math.pow(2, attempt) + Math.random() * 300;
 }
-function sleep(ms: number): Promise<void> {
-  return new Promise(r => setTimeout(r, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new Error('Aborted')); return; }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer);
+      reject(new Error('Aborted'));
+    }, { once: true });
+  });
 }
 function retryAfterMs(value: string | null): number {
   const seconds = Number.parseInt(value ?? '5', 10);
-  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 5000;
+  const requested = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 5000;
+  return Math.min(requested, MAX_RETRY_DELAY_MS);
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  parentSignal?: AbortSignal,
+): Promise<Response> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const relayAbort = () => controller.abort();
+  parentSignal?.addEventListener('abort', relayAbort, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) throw new Error(`Provider request timed out after ${PROVIDER_TIMEOUT_MS / 1000} seconds.`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    parentSignal?.removeEventListener('abort', relayAbort);
+  }
+}
+
+function appendBounded(current: string, chunk: string): string {
+  if (current.length + chunk.length > MAX_STREAM_RESPONSE_LENGTH) {
+    throw new Error(`Provider response exceeded ${MAX_STREAM_RESPONSE_LENGTH} characters.`);
+  }
+  return current + chunk;
+}
+
+async function readWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  signal?: AbortSignal,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  if (signal?.aborted) throw new Error('Aborted');
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let relayAbort: (() => void) | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Provider stream stalled for ${PROVIDER_TIMEOUT_MS / 1000} seconds.`)), PROVIDER_TIMEOUT_MS);
+    relayAbort = () => reject(new Error('Aborted'));
+    signal?.addEventListener('abort', relayAbort, { once: true });
+  });
+  try {
+    return await Promise.race([reader.read(), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (relayAbort) signal?.removeEventListener('abort', relayAbort);
+  }
+}
+
+export function extractJsonObject(text: string): string | null {
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i)?.[1];
+  const source = fenced ?? text;
+  const start = source.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < source.length; index++) {
+    const char = source[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === '{') depth++;
+    else if (char === '}' && --depth === 0) return source.slice(start, index + 1);
+  }
+  return null;
 }
 
 // ── Anthropic ─────────────────────────────────────────────────────────────────
@@ -218,7 +303,7 @@ async function streamAnthropic(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (signal?.aborted) { callbacks.onError(new Error('Aborted')); return; }
     try {
-      const res = await fetch(`${baseUrl}/v1/messages`, {
+      const res = await fetchWithTimeout(`${baseUrl}/v1/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -233,14 +318,13 @@ async function streamAnthropic(
           messages: messages.map(m => ({ role: m.role, content: truncateForContext(m.content, 4000) })),
           stream: true,
         }),
-        signal,
-      });
+      }, signal);
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         const msg = body?.error?.message ?? `HTTP ${res.status}`;
-        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after'))); continue; }
-        if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
+        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after')), signal); continue; }
+        if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt), signal); continue; }
         throw new Error(msg);
       }
 
@@ -249,7 +333,7 @@ async function streamAnthropic(
       const dec = new TextDecoder();
       let full = '', buf = '';
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout(reader, signal);
         if (done) break;
         buf += dec.decode(value, { stream: true });
         const lines = buf.split('\n'); buf = lines.pop() ?? '';
@@ -260,14 +344,17 @@ async function streamAnthropic(
           try {
             const p = JSON.parse(data) as { delta?: { text?: string } };
             const text = p?.delta?.text ?? '';
-            if (text) { full += text; callbacks.onChunk(text); }
+            if (text) { full = appendBounded(full, text); callbacks.onChunk(text); }
           } catch { /* skip */ }
         }
       }
       callbacks.onComplete(full); return;
     } catch (err) {
-      if ((err as Error).name === 'AbortError') { callbacks.onError(new Error('Aborted')); return; }
-      if (attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
+      if (signal?.aborted || (err as Error).name === 'AbortError' || (err as Error).message === 'Aborted') { callbacks.onError(new Error('Aborted')); return; }
+      if (attempt < MAX_RETRIES - 1) {
+        try { await sleep(retryMs(attempt), signal); } catch { callbacks.onError(new Error('Aborted')); return; }
+        continue;
+      }
       callbacks.onError(err as Error); return;
     }
   }
@@ -291,7 +378,7 @@ async function streamOpenAI(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     if (signal?.aborted) { callbacks.onError(new Error('Aborted')); return; }
     try {
-      const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      const res = await fetchWithTimeout(`${baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -303,14 +390,13 @@ async function streamOpenAI(
           ],
           stream: true,
         }),
-        signal,
-      });
+      }, signal);
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         const msg = body?.error?.message ?? `HTTP ${res.status}`;
-        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after'))); continue; }
-        if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
+        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after')), signal); continue; }
+        if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt), signal); continue; }
         throw new Error(msg);
       }
 
@@ -319,7 +405,7 @@ async function streamOpenAI(
       const dec = new TextDecoder();
       let full = '', buf = '';
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout(reader, signal);
         if (done) break;
         buf += dec.decode(value, { stream: true });
         const lines = buf.split('\n'); buf = lines.pop() ?? '';
@@ -330,14 +416,17 @@ async function streamOpenAI(
           try {
             const p = JSON.parse(data) as { choices?: Array<{ delta?: { content?: string } }> };
             const text = p?.choices?.[0]?.delta?.content ?? '';
-            if (text) { full += text; callbacks.onChunk(text); }
+            if (text) { full = appendBounded(full, text); callbacks.onChunk(text); }
           } catch { /* skip */ }
         }
       }
       callbacks.onComplete(full); return;
     } catch (err) {
-      if ((err as Error).name === 'AbortError') { callbacks.onError(new Error('Aborted')); return; }
-      if (attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
+      if (signal?.aborted || (err as Error).name === 'AbortError' || (err as Error).message === 'Aborted') { callbacks.onError(new Error('Aborted')); return; }
+      if (attempt < MAX_RETRIES - 1) {
+        try { await sleep(retryMs(attempt), signal); } catch { callbacks.onError(new Error('Aborted')); return; }
+        continue;
+      }
       callbacks.onError(err as Error); return;
     }
   }
@@ -365,7 +454,7 @@ async function streamGemini(
         parts: [{ text: truncateForContext(m.content, 4000) }],
       }));
 
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
@@ -373,14 +462,13 @@ async function streamGemini(
           systemInstruction: { parts: [{ text: truncateForContext(system, 6000) }] },
           generationConfig: { maxOutputTokens: 4096 },
         }),
-        signal,
-      });
+      }, signal);
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
         const msg = body?.error?.message ?? `HTTP ${res.status}`;
-        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after'))); continue; }
-        if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
+        if (res.status === 429) { await sleep(retryAfterMs(res.headers.get('retry-after')), signal); continue; }
+        if (res.status >= 500 && attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt), signal); continue; }
         throw new Error(msg);
       }
 
@@ -389,7 +477,7 @@ async function streamGemini(
       const dec = new TextDecoder();
       let full = '', buf = '';
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readWithTimeout(reader, signal);
         if (done) break;
         buf += dec.decode(value, { stream: true });
         const lines = buf.split('\n'); buf = lines.pop() ?? '';
@@ -400,14 +488,17 @@ async function streamGemini(
             type GeminiChunk = { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
             const p = JSON.parse(data) as GeminiChunk;
             const text = p?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-            if (text) { full += text; callbacks.onChunk(text); }
+            if (text) { full = appendBounded(full, text); callbacks.onChunk(text); }
           } catch { /* skip */ }
         }
       }
       callbacks.onComplete(full); return;
     } catch (err) {
-      if ((err as Error).name === 'AbortError') { callbacks.onError(new Error('Aborted')); return; }
-      if (attempt < MAX_RETRIES - 1) { await sleep(retryMs(attempt)); continue; }
+      if (signal?.aborted || (err as Error).name === 'AbortError' || (err as Error).message === 'Aborted') { callbacks.onError(new Error('Aborted')); return; }
+      if (attempt < MAX_RETRIES - 1) {
+        try { await sleep(retryMs(attempt), signal); } catch { callbacks.onError(new Error('Aborted')); return; }
+        continue;
+      }
       callbacks.onError(err as Error); return;
     }
   }
@@ -473,11 +564,9 @@ export async function jsonWithFallback<T>(
           {
             onChunk: c => { full += c; },
             onComplete: text => {
-              const match =
-                text.match(/```json\s*([\s\S]*?)```/) ??
-                text.match(/(\{[\s\S]*\})/);
-              if (!match) { reject(new Error('No JSON in response')); return; }
-              try { resolve(JSON.parse(match[1]) as T); }
+              const json = extractJsonObject(text);
+              if (!json) { reject(new Error('No complete JSON object in response')); return; }
+              try { resolve(JSON.parse(json) as T); }
               catch (e) { reject(new Error(`JSON parse: ${(e as Error).message}`)); }
             },
             onError: reject,

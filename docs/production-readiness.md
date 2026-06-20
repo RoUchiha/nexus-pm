@@ -17,7 +17,7 @@ The app must treat user mission text, worker-agent submissions, pod output, and 
 
 - API keys are memory-only. Provider configuration persistence strips `apiKey` before writing to `sessionStorage`.
 - Provider choices, worker mode, and worker-agent metadata remain tab-scoped so reloads do not leak secrets to disk.
-- Content Security Policy blocks inline scripts, frames, objects, form posts, and all network connections except supported provider APIs plus local Ollama on port `11434`.
+- Content Security Policy blocks inline scripts, outbound frames, objects, form posts, and network connections except the same-origin broker, supported provider APIs, and local Ollama on port `11434`.
 - Production source maps are disabled by default. Set `VITE_ENABLE_SOURCEMAPS=true` only for controlled debugging.
 - Vite dev server binds to `127.0.0.1` with a strict port and does not auto-open a browser.
 - Local-provider URLs are normalized and limited to `http://localhost:11434` or `http://127.0.0.1:11434`.
@@ -25,6 +25,10 @@ The app must treat user mission text, worker-agent submissions, pod output, and 
 - Worker-agent metadata and manual worker outputs are length-limited and sanitized before storage or manager review.
 - Prompt trust-boundary rules are injected into manager, pod, verifier, coordination, synthesis, wave-check, and worker-review system prompts.
 - Streaming provider clients handle empty response bodies and bounded retry-after parsing.
+- Provider calls have request and stream-idle timeouts, abort-aware retry waits, and a hard output-size ceiling.
+- Model-generated execution plans are runtime-validated for shape, identifiers, VC ownership, dependency integrity, and cycles before entering state.
+- Connector credentials are memory-only and redacted from persistence, diagnostics, routing summaries, and prompts.
+- Generic connections are metadata/control-plane only in the browser; production data-plane calls require a same-origin server broker.
 - Runtime logs are ignored by git.
 
 ## Validation Checklist
@@ -34,6 +38,7 @@ Run these before release:
 ```bash
 npm.cmd run audit
 npm.cmd run typecheck
+npm.cmd test
 npm.cmd run build
 git diff --check
 ```
@@ -53,6 +58,9 @@ rg -n "dangerouslySetInnerHTML|innerHTML|outerHTML|eval\(|new Function|document\
 - Reloaded provider configs never restore API keys from storage.
 - Unsupported local-provider URLs fail closed before fetch.
 - Provider 429 responses use a safe retry delay when `retry-after` is missing or malformed.
+- Malformed, duplicate, cyclic, and unknown pod dependencies are rejected before execution.
+- Connector endpoints reject non-HTTPS, embedded credentials, fragments, and private/local network targets.
+- Connector approval, pause, resume, takeover, routing, and reload redaction are covered by browser verification.
 
 ## Enterprise Boundaries
 
@@ -65,3 +73,7 @@ The app is hardened for a browser-only deployment, but a regulated enterprise de
 - Durable encrypted storage for mission records and accepted worker submissions.
 - CI gates for audit, typecheck, build, static scan, and end-to-end browser tests.
 - CSP nonce or hashed style strategy after refactoring inline React styles.
+- Durable job queues, idempotency keys, leases, dead-letter queues, circuit breakers, and per-tenant concurrency controls.
+
+See `docs/connector-agent.md` for the broker contract and scale model, and `docs/security-assessment-2026-06-20.md` for the hardening findings and residual risks.
+- Clickjacking protection must be delivered as an HTTP response header (`Content-Security-Policy: frame-ancestors 'none'` and/or `X-Frame-Options: DENY`). Browsers ignore `frame-ancestors` in an HTML meta tag, and GitHub Pages does not provide repository-level custom response headers.

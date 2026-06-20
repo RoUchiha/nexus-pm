@@ -6,3 +6,5 @@ dist/
 *.local
 .DS_Store
 Thumbs.db
+.npm-cache/
+.tmp-browser-validation.png

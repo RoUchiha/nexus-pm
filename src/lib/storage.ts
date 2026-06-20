@@ -1,11 +1,13 @@
-import type { NexusState, ProviderConfig, WorkerAgentConnection, WorkerMode } from '../types';
+import type { ConnectorConfig, NexusState, ProviderConfig, WorkerAgentConnection, WorkerMode } from '../types';
 import { defaultConfigs, PROVIDER_MAP } from './providers';
+import { redactConnector } from './connectorAgent';
 import { sanitizeMetadataField } from './security';
 
 const SESSION_KEY = 'nexus_session';
 const PROVIDERS_KEY = 'nexus_providers';
 const WORKER_AGENTS_KEY = 'nexus_worker_agents';
 const WORKER_MODE_KEY = 'nexus_worker_mode';
+const CONNECTORS_KEY = 'nexus_connectors';
 
 // ── Provider configs ──────────────────────────────────────────────────────────
 // Stored in sessionStorage. API keys are intentionally stripped before storage.
@@ -114,4 +116,34 @@ export function loadSession(): Partial<NexusState> | null {
 
 export function clearSession(): void {
   sessionStorage.removeItem(SESSION_KEY);
+}
+
+export function saveConnectors(connectors: ConnectorConfig[]): void {
+  try {
+    sessionStorage.setItem(CONNECTORS_KEY, JSON.stringify(connectors.map(redactConnector)));
+  } catch { /* quota - best effort */ }
+}
+
+export function loadConnectors(): ConnectorConfig[] {
+  try {
+    const raw = sessionStorage.getItem(CONNECTORS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(item => item && typeof item.id === 'string' && typeof item.definitionId === 'string')
+      .slice(0, 100)
+      .map(item => ({
+        ...item,
+        name: sanitizeMetadataField(String(item.name ?? 'Connector')),
+        endpoint: String(item.endpoint ?? '').slice(0, 2048),
+        credentials: {},
+        scopes: Array.isArray(item.scopes) ? item.scopes.map(String).slice(0, 50) : [],
+        approved: false,
+        status: 'draft',
+        issues: [],
+        diagnostics: [],
+        steeringNotes: sanitizeMetadataField(String(item.steeringNotes ?? '')),
+      })) as ConnectorConfig[];
+  } catch { return []; }
 }

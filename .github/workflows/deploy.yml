@@ -35,6 +35,12 @@ jobs:
         env:
           GITHUB_ACTIONS: 'true'
 
+      - name: Unit and adversarial tests
+        run: npm test
+
+      - name: Dependency audit
+        run: npm audit --audit-level=moderate
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

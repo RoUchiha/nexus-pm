@@ -49,7 +49,7 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
         <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{error}</div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+      <div className="mission-actions" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
         <div className="mission-examples">
           {EXAMPLE_MISSIONS.map((ex, i) => (
             <button key={i} className="mission-example" onClick={() => loadExample(ex)} title={ex}>

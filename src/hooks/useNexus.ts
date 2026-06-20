@@ -20,6 +20,7 @@ import { MAX_WORKER_OUTPUT_LENGTH, clampText, generateSessionId } from '../lib/s
 import { clearSession } from '../lib/storage';
 import { resolveProviders, jsonWithFallback, streamWithFallback } from '../lib/providers';
 import { runDemoReplay } from '../demo/useDemoRunner';
+import { validateManagerPlan } from '../lib/planValidation';
 
 // ── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -203,14 +204,25 @@ interface WorkerRunContext {
 }
 
 function normalizeWorkerReview(review: Partial<WorkerReviewResult> | null | undefined): WorkerReviewResult {
+  const vcStatus = Object.fromEntries(Object.entries(review?.vcStatus ?? {})
+    .filter(([key, value]) => /^VC-\d{1,4}$/.test(key) && ['pending', 'passed', 'failed', 'partial'].includes(value))
+    .slice(0, 50));
   return {
-    approved: review?.approved ?? false,
-    summary: review?.summary ?? '',
-    managerGuidance: review?.managerGuidance ?? '',
-    requiredRevisions: Array.isArray(review?.requiredRevisions) ? review.requiredRevisions : [],
-    vcStatus: review?.vcStatus ?? {},
-    directives: Array.isArray(review?.directives) ? review.directives : [],
-    busSummary: review?.busSummary ?? '',
+    approved: review?.approved === true,
+    summary: clampText(typeof review?.summary === 'string' ? review.summary : '', 4000),
+    managerGuidance: clampText(typeof review?.managerGuidance === 'string' ? review.managerGuidance : '', 8000),
+    requiredRevisions: Array.isArray(review?.requiredRevisions)
+      ? review.requiredRevisions.filter(item => typeof item === 'string').slice(0, 50).map(item => clampText(item, 2000))
+      : [],
+    vcStatus,
+    directives: Array.isArray(review?.directives)
+      ? review.directives.slice(0, 50).map(directive => ({
+          targetPodId: clampText(typeof directive?.targetPodId === 'string' ? directive.targetPodId : 'ALL', 64),
+          instruction: clampText(typeof directive?.instruction === 'string' ? directive.instruction : '', 4000),
+          reasoning: clampText(typeof directive?.reasoning === 'string' ? directive.reasoning : '', 4000),
+        })).filter(directive => directive.instruction)
+      : [],
+    busSummary: clampText(typeof review?.busSummary === 'string' ? review.busSummary : '', 4000),
   };
 }
 
@@ -256,6 +268,7 @@ export function useNexus(): [NexusState, NexusActions] {
   // Worker pods intentionally block their DAG wave until manager review accepts the submission.
   const workerResolversRef = useRef(new Map<string, WorkerResolver>());
   const workerRunContextRef = useRef<WorkerRunContext | null>(null);
+  const workerReviewsInFlightRef = useRef(new Set<string>());
 
   const rejectWaitingWorkerPods = useCallback((error: Error) => {
     for (const resolver of workerResolversRef.current.values()) {
@@ -277,6 +290,7 @@ export function useNexus(): [NexusState, NexusActions] {
     busDedupeRef.current = new Set();
     managerDirectivesRef.current = new Map();
     workerRunContextRef.current = null;
+    workerReviewsInFlightRef.current.clear();
     rejectWaitingWorkerPods(new Error('Mission reset'));
     clearSession();
     dispatch({ type: 'RESET' });
@@ -348,12 +362,11 @@ export function useNexus(): [NexusState, NexusActions] {
           [{ role: 'user', content: `Execute your deliverable: ${blueprint.deliverable}. Address all assigned VCs explicitly.` }],
           {
             onChunk: chunk => {
-              podOutputsRef.current.set(
-                blueprint.id,
-                (podOutputsRef.current.get(blueprint.id) ?? '') + chunk,
-              );
+              const accumulated = (podOutputsRef.current.get(blueprint.id) ?? '') + chunk;
+              podOutputsRef.current.set(blueprint.id, accumulated);
               dispatch({ type: 'APPEND_POD_OUTPUT', id: blueprint.id, chunk });
-              emitBusFromText(chunk, blueprint.id);
+              // Parse the accumulated stream so protocol tags split across SSE chunks are not lost.
+              emitBusFromText(accumulated, blueprint.id);
             },
             onComplete: () => {
               dispatch({
@@ -498,6 +511,7 @@ export function useNexus(): [NexusState, NexusActions] {
   }, [dependencyOutputsFor, directiveTextFor, addLog]);
 
   const submitWorkerPodOutput = useCallback(async (podId: string, output: string): Promise<void> => {
+    if (workerReviewsInFlightRef.current.has(podId)) return;
     const trimmedOutput = clampText(output, MAX_WORKER_OUTPUT_LENGTH);
     if (!trimmedOutput) return;
 
@@ -508,6 +522,7 @@ export function useNexus(): [NexusState, NexusActions] {
     const worker = current.workerAgents.find(a => a.id === assignment?.workerAgentId);
 
     if (!context || !pod || !assignment || !worker) return;
+    workerReviewsInFlightRef.current.add(podId);
 
     const submittedAt = Date.now();
     dispatch({
@@ -660,6 +675,8 @@ export function useNexus(): [NexusState, NexusActions] {
       const resolver = workerResolversRef.current.get(podId);
       resolver?.reject(error);
       workerResolversRef.current.delete(podId);
+    } finally {
+      workerReviewsInFlightRef.current.delete(podId);
     }
   }, [dependencyOutputsFor, emitBusFromText, addLog]);
 
@@ -712,10 +729,11 @@ export function useNexus(): [NexusState, NexusActions] {
         managerProviders,
         'manager',
         specDraftingSystem(),
-        specDraftingUser(mission, enabledWorkerAgents),
+        specDraftingUser(mission, enabledWorkerAgents, workerOptions?.connectors ?? []),
         ac.signal,
       );
       if (ac.signal.aborted) return;
+      validateManagerPlan(rawResult);
 
       // Construct typed MissionSpec
       const spec: MissionSpec = {

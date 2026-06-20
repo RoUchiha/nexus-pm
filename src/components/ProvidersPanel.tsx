@@ -55,6 +55,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
     <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
       {/* Collapsed header bar */}
       <div
+        className="provider-summary"
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: '8px 20px', cursor: 'pointer', userSelect: 'none',
@@ -65,7 +66,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
           Providers
         </span>
 
-        <div style={{ display: 'flex', gap: 6, flex: 1 }}>
+        <div className="provider-badges" style={{ display: 'flex', gap: 6, flex: 1 }}>
           {PROVIDER_DEFINITIONS.map(def => {
             const cfg = configs.find(c => c.providerId === def.id);
             const isEnabled = cfg?.enabled && (def.apiKeyRequired ? !!cfg.apiKey : true);
@@ -88,7 +89,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
           })}
         </div>
 
-        <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--muted)' }}>
+        <div className="provider-stats" style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--muted)' }}>
           <span>
             <span style={{ color: managerCount > 0 ? 'var(--green)' : 'var(--red)' }}>●</span>
             {' '}{managerCount} manager

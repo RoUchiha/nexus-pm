@@ -49,6 +49,7 @@ export async function runDemoReplay(
 ): Promise<void> {
   const busDedupeRef = new Set<string>();
   const busMessages: BusMessage[] = [];
+  const streamedOutputs = new Map<string, string>();
 
   function addBus(msgs: BusMessage[]) {
     msgs.forEach(m => busMessages.push(m));
@@ -58,6 +59,13 @@ export async function runDemoReplay(
   function emitBusFromText(text: string, fromId: string) {
     const msgs = parseBusMessages(text, fromId, busDedupeRef);
     if (msgs.length > 0) addBus(msgs);
+  }
+
+  function appendDemoOutput(podId: string, chunk: string) {
+    const accumulated = (streamedOutputs.get(podId) ?? '') + chunk;
+    streamedOutputs.set(podId, accumulated);
+    dispatch({ type: 'APPEND_POD_OUTPUT', id: podId, chunk });
+    emitBusFromText(accumulated, podId);
   }
 
   // ── Phase 1: Spec drafting ─────────────────────────────────────────────────
@@ -120,8 +128,7 @@ export async function runDemoReplay(
     await streamText(
       DEMO_POD_OUTPUTS[podId],
       chunk => {
-        dispatch({ type: 'APPEND_POD_OUTPUT', id: podId, chunk });
-        emitBusFromText(chunk, podId);
+        appendDemoOutput(podId, chunk);
       },
       signal,
       'normal',
@@ -182,8 +189,7 @@ export async function runDemoReplay(
   });
 
   await streamText(DEMO_POD_OUTPUTS.frontend_ui, chunk => {
-    dispatch({ type: 'APPEND_POD_OUTPUT', id: 'frontend_ui', chunk });
-    emitBusFromText(chunk, 'frontend_ui');
+    appendDemoOutput('frontend_ui', chunk);
   }, signal, 'normal');
   if (signal.aborted) return;
 
@@ -218,8 +224,7 @@ export async function runDemoReplay(
   });
 
   await streamText(DEMO_POD_OUTPUTS.integration_qa, chunk => {
-    dispatch({ type: 'APPEND_POD_OUTPUT', id: 'integration_qa', chunk });
-    emitBusFromText(chunk, 'integration_qa');
+    appendDemoOutput('integration_qa', chunk);
   }, signal, 'normal');
   if (signal.aborted) return;
 

@@ -1,6 +1,7 @@
-import type { Pod, MissionSpec, VerificationCriterion, BusMessage, WorkerAgentConnection } from '../types';
+import type { Pod, MissionSpec, VerificationCriterion, BusMessage, WorkerAgentConnection, ConnectorConfig } from '../types';
 import { truncateForContext } from './security';
 import { formatBusMessagesForPod } from './bus';
+import { connectorPromptSummary } from './connectorAgent';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -110,14 +111,22 @@ SPEC QUALITY RULES:
 - Define 3–8 pods. Dependencies must reference valid pod IDs.`;
 }
 
-export function specDraftingUser(mission: string, workerAgents: WorkerAgentConnection[] = []): string {
+export function specDraftingUser(
+  mission: string,
+  workerAgents: WorkerAgentConnection[] = [],
+  connectors: ConnectorConfig[] = [],
+): string {
   const workerRoster = workerAgents.length > 0
     ? `\n\nCONNECTED COMPANY WORKER AGENTS:\n${workerAgents.map(agent => (
       `- ${agent.name} (owner: ${agent.ownerName || 'unassigned'}): ${agent.capabilities || 'no capabilities declared'}`
     )).join('\n')}\n\nWhen practical, shape pod roles and handoff context so these worker agents can fulfill tasks manually under manager review.`
     : '';
+  const connectorSummary = connectorPromptSummary(connectors);
+  const connectorContext = connectorSummary
+    ? `\n\nAPPROVED CONNECTOR CAPABILITIES (metadata only; never request or expose credentials):\n${connectorSummary}\nPlan only against these declared capabilities. Any write or side-effecting operation remains subject to the connector control mode and operator approval.`
+    : '';
 
-  return `Mission: ${mission}${workerRoster}
+  return `Mission: ${mission}${workerRoster}${connectorContext}
 
 Draft the mission spec and execution plan. Ensure every verification criterion is testable and assigned to a pod.`;
 }

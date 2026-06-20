@@ -75,6 +75,20 @@ NEXUS tries **free → freemium → paid** automatically and falls back if a pro
 
 ---
 
+## Connector Agent
+
+The Connector Agent adds governed connection points for LLM gateways, PostgreSQL, MongoDB, GitHub, GitLab, MCP/remote agents, and REST APIs.
+
+- Validates public HTTPS endpoints, authentication shape, and least-privilege scopes.
+- Keeps credentials in memory and strips them from persisted state, diagnostics, routes, and model prompts.
+- Requires explicit approval before routing, with supervised, autonomous-policy, and manual control modes.
+- Shows actionable diagnostics and lets operators steer, pause, resume, or take over.
+- Sends only approved capability metadata into mission planning.
+
+The static browser app intentionally does not make arbitrary connector calls. Production execution requires the server-side broker described in [docs/connector-agent.md](docs/connector-agent.md). This avoids turning the browser into an SSRF pivot or shipping database and repository secrets to client code.
+
+---
+
 ## Company worker agents
 
 Use **Company Worker Agents** when employees want to bring their own agents into the NEXUS workflow and manually fulfill tasks.
@@ -90,10 +104,15 @@ The manager remains the single source of truth: worker submissions can be reject
 
 See [docs/company-worker-agents.md](docs/company-worker-agents.md) for the full worker routing flow, handoff contents, review rules, and state model.
 See [docs/production-readiness.md](docs/production-readiness.md) for the security controls, validation checklist, and enterprise deployment boundaries.
+See [docs/security-assessment-2026-06-20.md](docs/security-assessment-2026-06-20.md) for the latest penetration-test findings, fixes, evidence, and residual risks.
 
 ---
 
 ## Security
+
+- **Execution is bounded.** Provider requests and idle streams time out, retries are capped, and response size is limited.
+- **Model plans are untrusted.** Pod identifiers, dependencies, verification ownership, and DAG integrity are validated before execution.
+- **Connector credentials are memory-only.** Persisted connection metadata is redacted and must be re-authorized after reload.
 
 - **API keys are memory-only.** Provider choices are saved for the current tab, but API keys are stripped before `sessionStorage` writes and are cleared on reload or tab close.
 - **Provider calls are allowlisted.** The CSP allows only supported provider API domains plus local Ollama on `localhost:11434` / `127.0.0.1:11434`.

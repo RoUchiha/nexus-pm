@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { ProvidersPanel } from './components/ProvidersPanel';
 import { WorkerAgentsPanel } from './components/WorkerAgentsPanel';
+import { ConnectionsPanel } from './components/ConnectionsPanel';
 import { MissionInput } from './components/MissionInput';
 import { PhaseIndicator } from './components/PhaseIndicator';
 import { SpecPanel } from './components/SpecPanel';
@@ -13,6 +14,7 @@ import { SynthesisPanel } from './components/SynthesisPanel';
 import { ActivityFeedPanel } from './components/ActivityFeedPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useNexus } from './hooks/useNexus';
+import { useConnectors } from './hooks/useConnectors';
 import {
   loadProviderConfigs,
   loadWorkerAgents,
@@ -29,6 +31,7 @@ export function App() {
   const [workerMode, setWorkerMode] = useState<WorkerMode>(() => loadWorkerMode());
   const [elapsed, setElapsed] = useState<number | null>(null);
   const [state, actions] = useNexus();
+  const [connectors, connectorActions] = useConnectors();
 
   const {
     phase, mission, spec, discovery, pods, bus,
@@ -51,8 +54,8 @@ export function App() {
   }, [state.startTime, phase]);
 
   const handleMission = useCallback((m: string) => {
-    actions.runMission(providerConfigs, m, { mode: workerMode, agents: workerAgents });
-  }, [providerConfigs, workerMode, workerAgents, actions]);
+    actions.runMission(providerConfigs, m, { mode: workerMode, agents: workerAgents, connectors });
+  }, [providerConfigs, workerMode, workerAgents, connectors, actions]);
 
   const handleWorkerAgentsChange = useCallback((next: WorkerAgentConnection[]) => {
     setWorkerAgents(next);
@@ -87,6 +90,7 @@ export function App() {
       />
 
       <ProvidersPanel configs={providerConfigs} onChange={setProviderConfigs} />
+      <ConnectionsPanel connectors={connectors} actions={connectorActions} locked={phase !== 'idle'} />
       <WorkerAgentsPanel
         agents={phase === 'idle' || state.workerAgents.length === 0 ? workerAgents : state.workerAgents}
         mode={phase === 'idle' ? workerMode : state.workerMode}
