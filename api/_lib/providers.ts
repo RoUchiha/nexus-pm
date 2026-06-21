@@ -1,3 +1,5 @@
+import { HttpError } from './http.js';
+
 interface BrokerRequest {
   providerId: string;
   model: string;
@@ -160,4 +162,3 @@ async function invokeGemini(
   if (!text?.trim()) throw new Error('Provider returned no content');
   return text;
 }
-import { HttpError } from './http.js';
