@@ -4,3 +4,4 @@ node_modules
 .audit-temp
 package-lock.json
 *.log
+*.sarif
