@@ -29,19 +29,19 @@ const ROUTES: Record<string, { format: ProviderRoute['format']; baseUrl: string;
 };
 
 export function validateBrokerRequest(value: unknown): BrokerRequest {
-  if (!value || typeof value !== 'object') throw new Response('Invalid request', { status: 400 });
+  if (!value || typeof value !== 'object') throw new HttpError(400, 'Invalid request');
   const body = value as Partial<BrokerRequest>;
   if (!body.providerId || !ROUTES[body.providerId]) {
-    throw new Response('Unsupported provider', { status: 400 });
+    throw new HttpError(400, 'Unsupported provider');
   }
   if (!body.model || !/^[a-zA-Z0-9._:/-]{1,120}$/.test(body.model)) {
-    throw new Response('Invalid model', { status: 400 });
+    throw new HttpError(400, 'Invalid model');
   }
   if (typeof body.system !== 'string' || body.system.length > 6_000) {
-    throw new Response('Invalid system prompt', { status: 400 });
+    throw new HttpError(400, 'Invalid system prompt');
   }
   if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 20) {
-    throw new Response('Invalid messages', { status: 400 });
+    throw new HttpError(400, 'Invalid messages');
   }
   const messages = body.messages.map((message) => {
     if (
@@ -50,7 +50,7 @@ export function validateBrokerRequest(value: unknown): BrokerRequest {
       typeof message.content !== 'string' ||
       message.content.length > 4_000
     ) {
-      throw new Response('Invalid message', { status: 400 });
+      throw new HttpError(400, 'Invalid message');
     }
     return { role: message.role, content: message.content };
   });
@@ -60,7 +60,7 @@ export function validateBrokerRequest(value: unknown): BrokerRequest {
 function routeFor(providerId: string): ProviderRoute {
   const config = ROUTES[providerId];
   const apiKey = process.env[config.env];
-  if (!apiKey) throw new Response('Provider unavailable', { status: 503 });
+  if (!apiKey) throw new HttpError(503, 'Provider unavailable');
   return { ...config, apiKey };
 }
 
@@ -160,3 +160,4 @@ async function invokeGemini(
   if (!text?.trim()) throw new Error('Provider returned no content');
   return text;
 }
+import { HttpError } from './http.js';

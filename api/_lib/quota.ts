@@ -1,4 +1,5 @@
 import { getRedis } from './redis.js';
+import { HttpError } from './http.js';
 
 const limit = (name: string, fallback: number, maximum: number): number => {
   const parsed = Number.parseInt(process.env[name] ?? '', 10);
@@ -37,10 +38,7 @@ export async function acquireProviderLease(
 
   if (exceeded) {
     await redis.decr(concurrencyKey);
-    throw new Response('Provider quota exceeded', {
-      status: 429,
-      headers: { 'Retry-After': '60' },
-    });
+    throw new HttpError(429, 'Provider quota exceeded', { 'Retry-After': '60' });
   }
 
   let released = false;

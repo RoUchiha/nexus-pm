@@ -3,32 +3,57 @@ import llmHandler from '../api/llm';
 import securityEventsHandler from '../api/security-events';
 import { validateBrokerRequest } from '../api/_lib/providers';
 import { decryptCredential, encryptCredential } from '../api/_lib/vault';
+import type { VercelRequest, VercelResponse } from '../api/_lib/http';
+
+function request(body: unknown): VercelRequest {
+  return { method: 'POST', headers: {}, body };
+}
+
+function responseRecorder() {
+  const state: { status: number; body?: unknown; headers: Record<string, string> } = {
+    status: 200,
+    headers: {},
+  };
+  const response: VercelResponse = {
+    status(code) {
+      state.status = code;
+      return response;
+    },
+    setHeader(name, value) {
+      state.headers[name] = value;
+      return response;
+    },
+    json(body) {
+      state.body = body;
+    },
+    send(body) {
+      state.body = body;
+    },
+    end() {},
+  };
+  return { response, state };
+}
 
 afterEach(() => vi.restoreAllMocks());
 
 describe('server control plane', () => {
   it('fails closed before contacting a provider when authentication is absent', async () => {
     const providerFetch = vi.spyOn(globalThis, 'fetch');
-    const response = await llmHandler(
-      new Request('https://nexus.example.com/api/llm', {
-        method: 'POST',
-        body: JSON.stringify({}),
-      }),
-    );
+    const recorder = responseRecorder();
+    await llmHandler(request({}), recorder.response);
 
-    expect(response.status).toBe(401);
+    expect(recorder.state.status).toBe(401);
     expect(providerFetch).not.toHaveBeenCalled();
   });
 
   it('rejects unauthenticated audit event writes', async () => {
-    const response = await securityEventsHandler(
-      new Request('https://nexus.example.com/api/security-events', {
-        method: 'POST',
-        body: JSON.stringify({ type: 'client.mission.started', correlationId: '12345678' }),
-      }),
+    const recorder = responseRecorder();
+    await securityEventsHandler(
+      request({ type: 'client.mission.started', correlationId: '12345678' }),
+      recorder.response,
     );
 
-    expect(response.status).toBe(401);
+    expect(recorder.state.status).toBe(401);
   });
 
   it('allowlists providers and bounds prompt inputs', () => {

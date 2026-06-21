@@ -1,19 +1,20 @@
 import { verifyToken } from '@clerk/backend';
+import { HttpError, requestHeader, type VercelRequest } from './http.js';
 
 export interface Principal {
   userId: string;
   tenantId: string;
 }
 
-export async function requirePrincipal(request: Request): Promise<Principal> {
-  const token = request.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
+export async function requirePrincipal(request: VercelRequest): Promise<Principal> {
+  const token = requestHeader(request, 'authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   const jwtKey = process.env.CLERK_JWT_KEY;
   const authorizedParties = process.env.CLERK_AUTHORIZED_PARTIES?.split(',')
     .map((party) => party.trim())
     .filter(Boolean);
 
   if (!token || !jwtKey || !authorizedParties?.length) {
-    throw new Response('Unauthorized', { status: 401 });
+    throw new HttpError(401, 'Unauthorized');
   }
 
   try {
@@ -26,6 +27,6 @@ export async function requirePrincipal(request: Request): Promise<Principal> {
     if (!userId) throw new Error('Missing subject');
     return { userId, tenantId: organizationId || `user:${userId}` };
   } catch {
-    throw new Response('Unauthorized', { status: 401 });
+    throw new HttpError(401, 'Unauthorized');
   }
 }

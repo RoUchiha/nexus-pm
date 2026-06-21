@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { recordSecurityEvent } from '../_lib/audit.js';
 import { requirePrincipal } from '../_lib/auth.js';
+import {
+  HttpError,
+  requestBody,
+  sendError,
+  type VercelRequest,
+  type VercelResponse,
+} from '../_lib/http.js';
 import { getRedis } from '../_lib/redis.js';
 import { decryptCredential, encryptCredential } from '../_lib/vault.js';
 
@@ -8,9 +15,14 @@ const AUTH_TYPES = new Set(['none', 'api_key', 'bearer', 'oauth2', 'basic', 'con
 
 function allowedEndpoint(raw: unknown): URL {
   if (typeof raw !== 'string' || raw.length > 2_048) {
-    throw new Response('Invalid endpoint', { status: 400 });
+    throw new HttpError(400, 'Invalid endpoint');
   }
-  const endpoint = new URL(raw);
+  let endpoint: URL;
+  try {
+    endpoint = new URL(raw);
+  } catch {
+    throw new HttpError(400, 'Invalid endpoint');
+  }
   const allowedHosts = (process.env.CONNECTOR_ALLOWED_HOSTS ?? '')
     .split(',')
     .map((host) => host.trim().toLowerCase())
@@ -22,22 +34,29 @@ function allowedEndpoint(raw: unknown): URL {
     endpoint.hash ||
     !allowedHosts.includes(endpoint.hostname.toLowerCase())
   ) {
-    throw new Response('Endpoint is not on the organization allowlist', { status: 403 });
+    throw new HttpError(403, 'Endpoint is not on the organization allowlist');
   }
   return endpoint;
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+export default async function handler(
+  request: VercelRequest,
+  response: VercelResponse,
+): Promise<void> {
+  if (request.method !== 'POST') {
+    response.status(405).send('Method not allowed');
+    return;
+  }
   try {
     const principal = await requirePrincipal(request);
-    const body = (await request.json()) as Record<string, unknown>;
-    const connectorId = typeof body.id === 'string' ? body.id : '';
-    const authType = typeof body.authType === 'string' ? body.authType : '';
-    const approved = body.approved === true;
-    const endpoint = allowedEndpoint(body.endpoint);
+    const body = requestBody(request) as Record<string, unknown>;
+    const connectorId = typeof body?.id === 'string' ? body.id : '';
+    const authType = typeof body?.authType === 'string' ? body.authType : '';
+    const approved = body?.approved === true;
+    const endpoint = allowedEndpoint(body?.endpoint);
     if (!/^[a-zA-Z0-9_-]{8,120}$/.test(connectorId) || !AUTH_TYPES.has(authType)) {
-      return new Response('Invalid connector', { status: 400 });
+      response.status(400).send('Invalid connector');
+      return;
     }
 
     const redis = getRedis();
@@ -57,24 +76,22 @@ export default async function handler(request: Request): Promise<Response> {
     const encrypted = await redis.get<string>(vaultKey);
     const credentials = encrypted ? decryptCredential(encrypted, principal.tenantId) : {};
     if (authType !== 'none' && Object.keys(credentials).length === 0) {
-      return Response.json(
-        {
-          status: 'blocked',
-          credentialRef: null,
-          diagnostics: ['Endpoint allowlist passed.'],
-          issues: [
-            {
-              code: 'CREDENTIAL_MISSING',
-              severity: 'error',
-              title: 'Credential is missing',
-              detail: 'No encrypted credential exists for this connector.',
-              remediation: ['Enter the credential and run diagnostics again.'],
-              retriable: true,
-            },
-          ],
-        },
-        { status: 200 },
-      );
+      response.status(200).json({
+        status: 'blocked',
+        credentialRef: null,
+        diagnostics: ['Endpoint allowlist passed.'],
+        issues: [
+          {
+            code: 'CREDENTIAL_MISSING',
+            severity: 'error',
+            title: 'Credential is missing',
+            detail: 'No encrypted credential exists for this connector.',
+            remediation: ['Enter the credential and run diagnostics again.'],
+            retriable: true,
+          },
+        ],
+      });
+      return;
     }
 
     await recordSecurityEvent({
@@ -86,7 +103,7 @@ export default async function handler(request: Request): Promise<Response> {
       type: 'connector.diagnosed',
       outcome: 'success',
     });
-    return Response.json({
+    response.status(200).json({
       status: approved ? 'ready' : 'degraded',
       credentialRef: `vault://${connectorId}`,
       diagnostics: [
@@ -110,8 +127,6 @@ export default async function handler(request: Request): Promise<Response> {
           ],
     });
   } catch (error) {
-    return error instanceof Response
-      ? error
-      : Response.json({ error: 'Connector diagnosis failed' }, { status: 503 });
+    sendError(response, error, 'Connector diagnosis failed');
   }
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { recordSecurityEvent, type SecurityEventType } from './_lib/audit.js';
 import { requirePrincipal } from './_lib/auth.js';
+import { requestBody, sendError, type VercelRequest, type VercelResponse } from './_lib/http.js';
 
 const ALLOWED_TYPES = new Set<SecurityEventType>([
   'client.mission.started',
@@ -8,15 +9,22 @@ const ALLOWED_TYPES = new Set<SecurityEventType>([
   'client.mission.failed',
 ]);
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+export default async function handler(
+  request: VercelRequest,
+  response: VercelResponse,
+): Promise<void> {
+  if (request.method !== 'POST') {
+    response.status(405).send('Method not allowed');
+    return;
+  }
   try {
     const principal = await requirePrincipal(request);
-    const body = (await request.json()) as Record<string, unknown>;
-    const type = body.type as SecurityEventType;
-    const correlationId = typeof body.correlationId === 'string' ? body.correlationId : '';
+    const body = requestBody(request) as Record<string, unknown>;
+    const type = body?.type as SecurityEventType;
+    const correlationId = typeof body?.correlationId === 'string' ? body.correlationId : '';
     if (!ALLOWED_TYPES.has(type) || !/^[a-zA-Z0-9_-]{8,120}$/.test(correlationId)) {
-      return new Response('Invalid event', { status: 400 });
+      response.status(400).send('Invalid event');
+      return;
     }
     await recordSecurityEvent({
       id: randomUUID(),
@@ -28,10 +36,8 @@ export default async function handler(request: Request): Promise<Response> {
       outcome: type === 'client.mission.started' ? 'success' : 'failure',
       errorCode: typeof body.errorCode === 'string' ? body.errorCode.slice(0, 80) : undefined,
     });
-    return new Response(null, { status: 204 });
+    response.status(204).end();
   } catch (error) {
-    return error instanceof Response
-      ? error
-      : new Response('Event persistence failed', { status: 503 });
+    sendError(response, error, 'Event persistence failed');
   }
 }

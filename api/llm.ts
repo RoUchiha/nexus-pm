@@ -1,15 +1,29 @@
 import { randomUUID } from 'node:crypto';
 import { recordSecurityEvent } from './_lib/audit.js';
 import { requirePrincipal, type Principal } from './_lib/auth.js';
+import {
+  HttpError,
+  requestBody,
+  requestHeader,
+  sendError,
+  type VercelRequest,
+  type VercelResponse,
+} from './_lib/http.js';
 import { invokeProvider, validateBrokerRequest } from './_lib/providers.js';
 import { acquireProviderLease } from './_lib/quota.js';
 
 export const config = { maxDuration: 120 };
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+export default async function handler(
+  request: VercelRequest,
+  response: VercelResponse,
+): Promise<void> {
+  if (request.method !== 'POST') {
+    response.status(405).send('Method not allowed');
+    return;
+  }
 
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = requestHeader(request, 'x-correlation-id') || randomUUID();
   const startedAt = Date.now();
   let release: (() => Promise<void>) | null = null;
   let principal: Principal | null = null;
@@ -17,7 +31,7 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     principal = await requirePrincipal(request);
-    const body = validateBrokerRequest(await request.json());
+    const body = validateBrokerRequest(requestBody(request));
     providerId = body.providerId;
     const estimatedInputCharacters =
       body.system.length +
@@ -34,8 +48,7 @@ export default async function handler(request: Request): Promise<Response> {
       providerId: body.providerId,
     });
 
-    const timeout = AbortSignal.timeout(90_000);
-    const text = await invokeProvider(body, timeout);
+    const text = await invokeProvider(body, AbortSignal.timeout(90_000));
     await recordSecurityEvent({
       id: randomUUID(),
       timestamp: new Date().toISOString(),
@@ -55,7 +68,7 @@ export default async function handler(request: Request): Promise<Response> {
         }),
       );
     });
-    return Response.json({ text, correlationId });
+    response.status(200).json({ text, correlationId });
   } catch (error) {
     if (principal) {
       await recordSecurityEvent({
@@ -65,26 +78,29 @@ export default async function handler(request: Request): Promise<Response> {
         tenantId: principal.tenantId,
         userId: principal.userId,
         type: 'llm.request.failed',
-        outcome: error instanceof Response && error.status === 429 ? 'denied' : 'failure',
+        outcome: error instanceof HttpError && error.status === 429 ? 'denied' : 'failure',
         providerId,
         durationMs: Date.now() - startedAt,
         errorCode:
-          error instanceof Response
+          error instanceof HttpError
             ? `HTTP_${error.status}`
             : error instanceof Error
               ? error.name
               : 'UnknownError',
       }).catch(() => undefined);
     }
-    if (error instanceof Response) return error;
-    console.error(
-      JSON.stringify({
-        category: 'llm-broker-error',
-        correlationId,
-        errorCode: error instanceof Error ? error.name : 'UnknownError',
-      }),
-    );
-    return Response.json({ error: 'Provider request failed', correlationId }, { status: 502 });
+    if (!(error instanceof HttpError)) {
+      console.error(
+        JSON.stringify({
+          category: 'llm-broker-error',
+          correlationId,
+          errorCode: error instanceof Error ? error.name : 'UnknownError',
+        }),
+      );
+      response.status(502).json({ error: 'Provider request failed', correlationId });
+      return;
+    }
+    sendError(response, error);
   } finally {
     if (release) await release().catch(() => undefined);
   }

@@ -1,10 +1,11 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { HttpError } from './http.js';
 
 function key(): Buffer {
   const encoded = process.env.CONNECTOR_VAULT_KEY;
-  if (!encoded) throw new Response('Connector vault unavailable', { status: 503 });
+  if (!encoded) throw new HttpError(503, 'Connector vault unavailable');
   const decoded = Buffer.from(encoded, 'base64');
-  if (decoded.length !== 32) throw new Response('Connector vault unavailable', { status: 503 });
+  if (decoded.length !== 32) throw new HttpError(503, 'Connector vault unavailable');
   return decoded;
 }
 
