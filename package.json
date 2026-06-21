@@ -17,6 +17,7 @@
     "audit": "npm audit --audit-level=moderate"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.19.0",
     "@clerk/backend": "^3.8.2",
     "@clerk/react": "^6.10.4",
     "@upstash/redis": "^1.35.8",

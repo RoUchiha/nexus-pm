@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { Header } from './components/Header';
 import { ProvidersPanel } from './components/ProvidersPanel';
 import { WorkerAgentsPanel } from './components/WorkerAgentsPanel';
@@ -25,7 +25,11 @@ import {
 import { resolveProviders } from './lib/providers';
 import type { ProviderConfig, WorkerAgentConnection, WorkerMode } from './types';
 
-export function App() {
+interface Props {
+  sessionControl?: ReactNode;
+}
+
+export function App({ sessionControl }: Props = {}) {
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>(() =>
     loadProviderConfigs(),
   );
@@ -108,7 +112,13 @@ export function App() {
 
   return (
     <div className="app">
-      <Header phase={phase} elapsed={elapsed} onAbort={actions.abort} onReset={actions.reset} />
+      <Header
+        phase={phase}
+        elapsed={elapsed}
+        onAbort={actions.abort}
+        onReset={actions.reset}
+        sessionControl={sessionControl}
+      />
 
       <ProvidersPanel configs={providerConfigs} onChange={setProviderConfigs} />
       <ConnectionsPanel

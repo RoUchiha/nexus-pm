@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import llmHandler from '../api/llm';
 import securityEventsHandler from '../api/security-events';
 import { validateBrokerRequest } from '../api/_lib/providers';
+import { requirePrincipal } from '../api/_lib/auth';
 import { decryptCredential, encryptCredential } from '../api/_lib/vault';
 import type { VercelRequest, VercelResponse } from '../api/_lib/http';
 
@@ -54,6 +55,31 @@ describe('server control plane', () => {
     );
 
     expect(recorder.state.status).toBe(401);
+  });
+
+  it('validates Auth0 access tokens against the configured tenant', async () => {
+    const previousDomain = process.env.AUTH0_DOMAIN;
+    process.env.AUTH0_DOMAIN = 'tenant.us.auth0.com';
+    const userInfo = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ sub: 'auth0|user-1' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    try {
+      const principal = await requirePrincipal({
+        method: 'POST',
+        headers: { authorization: 'Bearer test-access-token' },
+      });
+      expect(principal).toEqual({ userId: 'auth0|user-1', tenantId: 'user:auth0|user-1' });
+      expect(userInfo).toHaveBeenCalledWith(
+        'https://tenant.us.auth0.com/userinfo',
+        expect.objectContaining({ headers: { Authorization: 'Bearer test-access-token' } }),
+      );
+    } finally {
+      if (previousDomain === undefined) delete process.env.AUTH0_DOMAIN;
+      else process.env.AUTH0_DOMAIN = previousDomain;
+    }
   });
 
   it('allowlists providers and bounds prompt inputs', () => {

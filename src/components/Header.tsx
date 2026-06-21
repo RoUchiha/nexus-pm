@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { AppPhase } from '../types';
 import { PHASE_META } from '../lib/constants';
 
@@ -6,9 +7,10 @@ interface Props {
   elapsed: number | null;
   onAbort: () => void;
   onReset: () => void;
+  sessionControl?: ReactNode;
 }
 
-export function Header({ phase, elapsed, onAbort, onReset }: Props) {
+export function Header({ phase, elapsed, onAbort, onReset, sessionControl }: Props) {
   const running = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(
     phase,
   );
@@ -71,6 +73,7 @@ export function Header({ phase, elapsed, onAbort, onReset }: Props) {
             New Mission
           </button>
         )}
+        {sessionControl}
       </div>
     </header>
   );
