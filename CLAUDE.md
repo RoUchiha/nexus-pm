@@ -30,6 +30,7 @@ src/
 ## Pod Communication Protocol
 
 Pods emit structured messages mid-output:
+
 - `[BROADCAST]: message` — all pods see this
 - `[SIGNAL→pod_id]: message` — direct to a specific pod
 - `[ALIGNED]: decision` — confirms shared decision

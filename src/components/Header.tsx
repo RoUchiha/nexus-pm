@@ -9,7 +9,9 @@ interface Props {
 }
 
 export function Header({ phase, elapsed, onAbort, onReset }: Props) {
-  const running = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(phase);
+  const running = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(
+    phase,
+  );
   const meta = PHASE_META[phase];
 
   return (
@@ -25,9 +27,28 @@ export function Header({ phase, elapsed, onAbort, onReset }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {phase !== 'idle' && (
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: running ? 'var(--blue)' : phase === 'complete' ? 'var(--green)' : phase === 'error' ? 'var(--red)' : 'var(--muted)', fontWeight: 600 }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: running
+                  ? 'var(--blue)'
+                  : phase === 'complete'
+                    ? 'var(--green)'
+                    : phase === 'aborted'
+                      ? 'var(--orange)'
+                      : phase === 'error'
+                        ? 'var(--red)'
+                        : 'var(--muted)',
+                fontWeight: 600,
+              }}
+            >
               {meta.label}
-              {running && <span className="spinner" style={{ display: 'inline-block', marginLeft: 6, verticalAlign: 'middle' }} />}
+              {running && (
+                <span
+                  className="spinner"
+                  style={{ display: 'inline-block', marginLeft: 6, verticalAlign: 'middle' }}
+                />
+              )}
             </div>
             <div style={{ fontSize: 11, color: 'var(--dim)' }}>{meta.description}</div>
           </div>
@@ -41,10 +62,14 @@ export function Header({ phase, elapsed, onAbort, onReset }: Props) {
 
       <div className="header-right">
         {running && (
-          <button className="btn btn-danger" onClick={onAbort}>Abort</button>
+          <button className="btn btn-danger" onClick={onAbort}>
+            Abort
+          </button>
         )}
         {phase !== 'idle' && !running && (
-          <button className="btn btn-ghost" onClick={onReset}>New Mission</button>
+          <button className="btn btn-ghost" onClick={onReset}>
+            New Mission
+          </button>
         )}
       </div>
     </header>

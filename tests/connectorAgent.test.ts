@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { connectorPromptSummary, createConnector, diagnoseConnector, redactConnector, routeConnectorCapabilities } from '../src/lib/connectorAgent';
+import {
+  connectorPromptSummary,
+  createConnector,
+  diagnoseConnector,
+  redactConnector,
+  routeConnectorCapabilities,
+} from '../src/lib/connectorAgent';
 
 function readyGitHub() {
   return {
@@ -24,7 +30,9 @@ describe('connector specialist', () => {
     const connector = { ...readyGitHub(), credentials: {}, approved: false };
     const result = diagnoseConnector(connector);
     expect(result.status).toBe('blocked');
-    expect(result.issues.map(issue => issue.code)).toEqual(expect.arrayContaining(['CREDENTIAL_MISSING', 'APPROVAL_REQUIRED']));
+    expect(result.issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining(['CREDENTIAL_MISSING', 'APPROVAL_REQUIRED']),
+    );
   });
 
   it('strips credentials before persistence', () => {
@@ -35,7 +43,10 @@ describe('connector specialist', () => {
     const connector = { ...readyGitHub(), status: 'ready' as const };
     const plan = routeConnectorCapabilities([connector], ['repo-read', 'api-write']);
     expect(plan.routes).toHaveLength(1);
-    expect(plan.routes[0]).toMatchObject({ connectorName: 'Engineering GitHub', requiresApproval: true });
+    expect(plan.routes[0]).toMatchObject({
+      connectorName: 'Engineering GitHub',
+      requiresApproval: true,
+    });
     expect(plan.unresolvedCapabilities).toEqual(['api-write']);
   });
 

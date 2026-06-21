@@ -16,7 +16,10 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
   const submit = useCallback(() => {
     const clean = sanitizeInput(text);
     const { valid, error: err } = validateMission(clean);
-    if (!valid) { setError(err ?? 'Invalid mission'); return; }
+    if (!valid) {
+      setError(err ?? 'Invalid mission');
+      return;
+    }
     setError('');
     onSubmit(clean);
     setText('');
@@ -29,7 +32,14 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
 
   return (
     <div className="mission-section">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 8,
+        }}
+      >
         <span className="section-title">Mission Briefing</span>
         <span style={{ fontSize: 11, color: 'var(--dim)' }}>{text.length}/2000</span>
       </div>
@@ -38,18 +48,27 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
         className={`mission-textarea${error ? ' input-error' : ''}`}
         placeholder="Describe the mission for NEXUS. Be specific about goals, constraints, and context..."
         value={text}
-        onChange={e => { setText(e.target.value); setError(''); }}
-        onKeyDown={e => {
+        onChange={(e) => {
+          setText(e.target.value);
+          setError('');
+        }}
+        onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit();
         }}
         disabled={disabled}
       />
 
-      {error && (
-        <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{error}</div>
-      )}
+      {error && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{error}</div>}
 
-      <div className="mission-actions" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+      <div
+        className="mission-actions"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 10,
+        }}
+      >
         <div className="mission-examples">
           {EXAMPLE_MISSIONS.map((ex, i) => (
             <button key={i} className="mission-example" onClick={() => loadExample(ex)} title={ex}>
@@ -65,7 +84,10 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
           style={{ flexShrink: 0, marginLeft: 12 }}
         >
           {disabled ? (
-            <><span className="spinner" />Running…</>
+            <>
+              <span className="spinner" />
+              Running…
+            </>
           ) : (
             <>⬡ Launch Mission</>
           )}
@@ -78,7 +100,14 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 4,
+        }}
+      >
         <span style={{ fontSize: 11, color: 'var(--dim)' }}>⌘ + Enter to launch</span>
         {onDemo && (
           <button

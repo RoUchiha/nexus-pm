@@ -1,0 +1,6 @@
+dist
+node_modules
+.npm-cache
+.audit-temp
+package-lock.json
+*.log

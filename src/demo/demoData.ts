@@ -1,9 +1,14 @@
 import type {
-  MissionSpec, DiscoveryResult, VerificationResult,
-  CoordinationResult, SynthesisResult, BusMessage,
+  MissionSpec,
+  DiscoveryResult,
+  VerificationResult,
+  CoordinationResult,
+  SynthesisResult,
+  BusMessage,
 } from '../types';
 
-export const DEMO_MISSION = 'Build a real-time collaborative project tracking dashboard for remote engineering teams';
+export const DEMO_MISSION =
+  'Build a real-time collaborative project tracking dashboard for remote engineering teams';
 
 // ── Spec + Discovery ──────────────────────────────────────────────────────────
 
@@ -70,58 +75,93 @@ export const DEMO_SPEC: MissionSpec = {
   verificationCriteria: [
     {
       id: 'VC-001',
-      description: 'When a task status is updated via the API, all connected dashboard clients shall display the new status within 500ms',
+      description:
+        'When a task status is updated via the API, all connected dashboard clients shall display the new status within 500ms',
       category: 'functional',
       testable: true,
     },
     {
       id: 'VC-002',
-      description: 'When a contributor attempts to access team management routes, the API shall return HTTP 403 with error code FORBIDDEN',
+      description:
+        'When a contributor attempts to access team management routes, the API shall return HTTP 403 with error code FORBIDDEN',
       category: 'constraint',
       testable: true,
     },
     {
       id: 'VC-003',
-      description: 'The REST API shall expose endpoints for CREATE, READ, UPDATE, DELETE on projects, tasks, and user-team assignments',
+      description:
+        'The REST API shall expose endpoints for CREATE, READ, UPDATE, DELETE on projects, tasks, and user-team assignments',
       category: 'functional',
       testable: true,
     },
     {
       id: 'VC-004',
-      description: 'When a new user completes onboarding, they shall reach their first created task within 3 UI steps and under 2 minutes',
+      description:
+        'When a new user completes onboarding, they shall reach their first created task within 3 UI steps and under 2 minutes',
       category: 'quality',
       testable: true,
     },
     {
       id: 'VC-005',
-      description: 'The WebSocket connection shall reconnect automatically within 3 seconds of a network interruption',
+      description:
+        'The WebSocket connection shall reconnect automatically within 3 seconds of a network interruption',
       category: 'quality',
       testable: true,
     },
     {
       id: 'VC-006',
-      description: 'All API endpoints that accept user input shall validate the request body against a Zod schema and return structured errors on validation failure',
+      description:
+        'All API endpoints that accept user input shall validate the request body against a Zod schema and return structured errors on validation failure',
       category: 'constraint',
       testable: true,
     },
   ],
   podSections: [
-    { podId: 'backend_api', responsibility: 'REST API, data model, auth, RBAC', vcIds: ['VC-002', 'VC-003', 'VC-006'] },
-    { podId: 'realtime_engine', responsibility: 'WebSocket layer, event broadcasting, reconnection', vcIds: ['VC-001', 'VC-005'] },
-    { podId: 'frontend_ui', responsibility: 'Dashboard UI, task views, onboarding flow', vcIds: ['VC-004'] },
-    { podId: 'integration_qa', responsibility: 'Cross-system integration verification, E2E contract validation', vcIds: ['VC-001', 'VC-002', 'VC-003', 'VC-005'] },
+    {
+      podId: 'backend_api',
+      responsibility: 'REST API, data model, auth, RBAC',
+      vcIds: ['VC-002', 'VC-003', 'VC-006'],
+    },
+    {
+      podId: 'realtime_engine',
+      responsibility: 'WebSocket layer, event broadcasting, reconnection',
+      vcIds: ['VC-001', 'VC-005'],
+    },
+    {
+      podId: 'frontend_ui',
+      responsibility: 'Dashboard UI, task views, onboarding flow',
+      vcIds: ['VC-004'],
+    },
+    {
+      podId: 'integration_qa',
+      responsibility: 'Cross-system integration verification, E2E contract validation',
+      vcIds: ['VC-001', 'VC-002', 'VC-003', 'VC-005'],
+    },
   ],
   status: 'active',
 };
 
 export const DEMO_DISCOVERY: DiscoveryResult = {
-  analysis: 'This is a well-scoped real-time collaboration system. The core complexity lies in the WebSocket event propagation guarantees and the RBAC enforcement boundary. The frontend depends on both the API contract and the WebSocket event schema, creating a clear 3-wave execution order. The integration pod provides the cross-cutting validation layer.',
+  analysis:
+    'This is a well-scoped real-time collaboration system. The core complexity lies in the WebSocket event propagation guarantees and the RBAC enforcement boundary. The frontend depends on both the API contract and the WebSocket event schema, creating a clear 3-wave execution order. The integration pod provides the cross-cutting validation layer.',
   resources: [
     { name: 'React 18 + TypeScript', status: 'available', notes: 'Established frontend stack' },
     { name: 'Fastify + Drizzle ORM', status: 'available', notes: 'Approved backend stack' },
-    { name: 'PostgreSQL 15', status: 'required', notes: 'Must be provisioned in target environment' },
-    { name: 'WebSocket server (ws library)', status: 'available', notes: 'Available via npm, compatible with Fastify' },
-    { name: 'Zod validation library', status: 'available', notes: 'Required by constraints — already in approved stack' },
+    {
+      name: 'PostgreSQL 15',
+      status: 'required',
+      notes: 'Must be provisioned in target environment',
+    },
+    {
+      name: 'WebSocket server (ws library)',
+      status: 'available',
+      notes: 'Available via npm, compatible with Fastify',
+    },
+    {
+      name: 'Zod validation library',
+      status: 'available',
+      notes: 'Required by constraints — already in approved stack',
+    },
   ],
   risks: [
     'WebSocket broadcast latency may exceed 500ms under high concurrent write load — load testing required',
@@ -140,8 +180,10 @@ export const DEMO_DISCOVERY: DiscoveryResult = {
       role: 'Senior Backend Engineer — REST API, PostgreSQL, Auth',
       priority: 'critical',
       dependencies: [],
-      deliverable: 'Complete Fastify API with Drizzle ORM schema, RBAC middleware, JWT auth, Zod validation, and all CRUD endpoints for projects/tasks/teams',
-      context: 'Design the full backend layer. Focus on type-safety, the RBAC enforcement pattern, and Zod schema validation on every route.',
+      deliverable:
+        'Complete Fastify API with Drizzle ORM schema, RBAC middleware, JWT auth, Zod validation, and all CRUD endpoints for projects/tasks/teams',
+      context:
+        'Design the full backend layer. Focus on type-safety, the RBAC enforcement pattern, and Zod schema validation on every route.',
       responsibility: 'REST API, data model, auth, RBAC',
       vcIds: ['VC-002', 'VC-003', 'VC-006'],
     },
@@ -151,8 +193,10 @@ export const DEMO_DISCOVERY: DiscoveryResult = {
       role: 'Senior Backend Engineer — WebSocket, Event Systems, Reliability',
       priority: 'critical',
       dependencies: [],
-      deliverable: 'WebSocket server with sub-200ms event broadcasting, automatic client reconnection logic, and event schema definition',
-      context: 'Design the real-time layer independent of but compatible with the REST API. Define the event schema carefully as it becomes a contract for the frontend.',
+      deliverable:
+        'WebSocket server with sub-200ms event broadcasting, automatic client reconnection logic, and event schema definition',
+      context:
+        'Design the real-time layer independent of but compatible with the REST API. Define the event schema carefully as it becomes a contract for the frontend.',
       responsibility: 'WebSocket layer, event broadcasting, reconnection',
       vcIds: ['VC-001', 'VC-005'],
     },
@@ -162,8 +206,10 @@ export const DEMO_DISCOVERY: DiscoveryResult = {
       role: 'Senior Frontend Engineer — React, TypeScript, UX',
       priority: 'high',
       dependencies: ['backend_api', 'realtime_engine'],
-      deliverable: 'React dashboard with live task board, RBAC-aware navigation, onboarding wizard (3-step, <2min), and WebSocket integration hooks',
-      context: 'Consume the API and WebSocket contracts from prior pods. Design the onboarding flow to hit the 3-step, 2-minute target.',
+      deliverable:
+        'React dashboard with live task board, RBAC-aware navigation, onboarding wizard (3-step, <2min), and WebSocket integration hooks',
+      context:
+        'Consume the API and WebSocket contracts from prior pods. Design the onboarding flow to hit the 3-step, 2-minute target.',
       responsibility: 'Dashboard UI, task views, onboarding flow',
       vcIds: ['VC-004'],
     },
@@ -173,8 +219,10 @@ export const DEMO_DISCOVERY: DiscoveryResult = {
       role: 'Senior QA Engineer — Integration Testing, Contract Validation',
       priority: 'high',
       dependencies: ['frontend_ui'],
-      deliverable: 'Integration test plan validating WebSocket latency, RBAC enforcement, API contract completeness, and reconnection behavior',
-      context: 'Verify the cross-system contracts. Check that the WebSocket events match the API changes, that RBAC is enforced end-to-end, and that the onboarding flow meets the time target.',
+      deliverable:
+        'Integration test plan validating WebSocket latency, RBAC enforcement, API contract completeness, and reconnection behavior',
+      context:
+        'Verify the cross-system contracts. Check that the WebSocket events match the API changes, that RBAC is enforced end-to-end, and that the onboarding flow meets the time target.',
       responsibility: 'Cross-system integration verification, E2E contract validation',
       vcIds: ['VC-001', 'VC-002', 'VC-003', 'VC-005'],
     },
@@ -615,7 +663,8 @@ export const DEMO_WAVE_CHECK_DIRECTIVES: BusMessage[] = [
     from: 'nexus-manager',
     to: 'frontend_ui',
     type: 'directive',
-    content: 'Consume the WebSocket reconnection hook exactly as published by realtime_engine — do not implement a custom reconnection strategy. Reason: realtime_engine has validated the backoff timing against VC-005.',
+    content:
+      'Consume the WebSocket reconnection hook exactly as published by realtime_engine — do not implement a custom reconnection strategy. Reason: realtime_engine has validated the backoff timing against VC-005.',
   },
   {
     id: 'wave_dir_002',
@@ -623,7 +672,8 @@ export const DEMO_WAVE_CHECK_DIRECTIVES: BusMessage[] = [
     from: 'nexus-manager',
     to: 'frontend_ui',
     type: 'directive',
-    content: 'Use the TaskStatusEnum exported from backend_api schemas/tasks.ts rather than a local string union — ensures type-safety and consistency with the Zod validation layer. Reason: type drift between frontend and backend is a common integration failure point.',
+    content:
+      'Use the TaskStatusEnum exported from backend_api schemas/tasks.ts rather than a local string union — ensures type-safety and consistency with the Zod validation layer. Reason: type drift between frontend and backend is a common integration failure point.',
   },
 ];
 
@@ -635,42 +685,48 @@ export const DEMO_VERIFICATION: VerificationResult = {
     {
       id: 'VC-001',
       status: 'passed',
-      evidence: 'realtime_engine: "Benchmarked broadcast latency at 80–120ms on localhost; 150–300ms p99 under 50 concurrent writers." integration_qa confirms E2E budget of 156–236ms.',
+      evidence:
+        'realtime_engine: "Benchmarked broadcast latency at 80–120ms on localhost; 150–300ms p99 under 50 concurrent writers." integration_qa confirms E2E budget of 156–236ms.',
       gap: '',
       satisfiedBy: 'realtime_engine',
     },
     {
       id: 'VC-002',
       status: 'passed',
-      evidence: 'backend_api: requireRole middleware returns HTTP 403 with code FORBIDDEN. integration_qa provides explicit test validating this contract.',
+      evidence:
+        'backend_api: requireRole middleware returns HTTP 403 with code FORBIDDEN. integration_qa provides explicit test validating this contract.',
       gap: '',
       satisfiedBy: 'backend_api',
     },
     {
       id: 'VC-003',
       status: 'passed',
-      evidence: 'backend_api endpoint table lists all CRUD operations for projects, tasks, and team assignments. integration_qa independently confirms completeness.',
+      evidence:
+        'backend_api endpoint table lists all CRUD operations for projects, tasks, and team assignments. integration_qa independently confirms completeness.',
       gap: '',
       satisfiedBy: 'backend_api',
     },
     {
       id: 'VC-004',
       status: 'passed',
-      evidence: 'frontend_ui: 3-step OnboardingWizard with auto-focused fields and pre-filled defaults. Estimated completion under 90 seconds per design.',
+      evidence:
+        'frontend_ui: 3-step OnboardingWizard with auto-focused fields and pre-filled defaults. Estimated completion under 90 seconds per design.',
       gap: '',
       satisfiedBy: 'frontend_ui',
     },
     {
       id: 'VC-005',
       status: 'passed',
-      evidence: 'realtime_engine: reconnection fires within 1s, capped at 3s max delay. frontend_ui consumes the hook exactly. integration_qa provides reconnection timing test.',
+      evidence:
+        'realtime_engine: reconnection fires within 1s, capped at 3s max delay. frontend_ui consumes the hook exactly. integration_qa provides reconnection timing test.',
       gap: '',
       satisfiedBy: 'realtime_engine',
     },
     {
       id: 'VC-006',
       status: 'partial',
-      evidence: 'backend_api shows Zod schemas for task creation/update. However, there is no explicit evidence that /auth/login and /projects endpoints are also validated.',
+      evidence:
+        'backend_api shows Zod schemas for task creation/update. However, there is no explicit evidence that /auth/login and /projects endpoints are also validated.',
       gap: 'Zod validation coverage is demonstrated for task routes but not confirmed for all API endpoints. Auth and project routes may lack validation.',
       satisfiedBy: 'backend_api',
     },
@@ -678,7 +734,8 @@ export const DEMO_VERIFICATION: VerificationResult = {
   violations: [
     {
       type: 'missing_vc',
-      description: 'VC-006 is only partially evidenced — auth and project route validation is not shown in backend_api output.',
+      description:
+        'VC-006 is only partially evidenced — auth and project route validation is not shown in backend_api output.',
       podId: 'backend_api',
       severity: 'minor',
     },
@@ -686,8 +743,10 @@ export const DEMO_VERIFICATION: VerificationResult = {
   specUpdates: [
     {
       section: 'verificationCriteria',
-      suggestion: 'Clarify VC-001 with a note: "Latency guarantee applies to same-region deployments; cross-region deployments should target best-effort with a documented SLO."',
-      rationale: 'integration_qa flagged that cross-region deployment may exceed 500ms. The VC as written is ambiguous about deployment topology.',
+      suggestion:
+        'Clarify VC-001 with a note: "Latency guarantee applies to same-region deployments; cross-region deployments should target best-effort with a documented SLO."',
+      rationale:
+        'integration_qa flagged that cross-region deployment may exceed 500ms. The VC as written is ambiguous about deployment topology.',
     },
   ],
   verifiedAt: Date.now(),
@@ -699,8 +758,10 @@ export const DEMO_COORDINATION: CoordinationResult = {
   misalignments: [
     {
       pods: ['backend_api', 'realtime_engine'],
-      issue: 'backend_api emits task.updated via a Fastify lifecycle hook but the hook integration point is not explicitly shown. The realtime_engine assumes synchronous emission after DB commit.',
-      resolution: 'backend_api should add explicit emit call in the route handler after db.update(), not rely on a lifecycle hook, to guarantee ordering.',
+      issue:
+        'backend_api emits task.updated via a Fastify lifecycle hook but the hook integration point is not explicitly shown. The realtime_engine assumes synchronous emission after DB commit.',
+      resolution:
+        'backend_api should add explicit emit call in the route handler after db.update(), not rely on a lifecycle hook, to guarantee ordering.',
     },
   ],
   corrections: [
@@ -714,7 +775,8 @@ export const DEMO_COORDINATION: CoordinationResult = {
 // ── Synthesis ─────────────────────────────────────────────────────────────────
 
 export const DEMO_SYNTHESIS: SynthesisResult = {
-  summary: 'NEXUS delivered a comprehensive architecture for a real-time collaborative project tracking dashboard achieving 87.5% spec compliance across 6 verification criteria. Five VCs passed fully; VC-006 (Zod validation coverage) is partial pending confirmation that auth and project routes are covered. One coordination correction was issued to ensure synchronous WebSocket emission after database commits.',
+  summary:
+    'NEXUS delivered a comprehensive architecture for a real-time collaborative project tracking dashboard achieving 87.5% spec compliance across 6 verification criteria. Five VCs passed fully; VC-006 (Zod validation coverage) is partial pending confirmation that auth and project routes are covered. One coordination correction was issued to ensure synchronous WebSocket emission after database commits.',
   deliverables: [
     'PostgreSQL schema with Drizzle ORM (organizations, users, projects, tasks)',
     'Fastify REST API with RBAC middleware and JWT auth (10 endpoints, all CRUD operations covered)',
@@ -786,5 +848,6 @@ The NEXUS fleet executed a 4-pod, 3-wave mission to architect a real-time collab
 | JWT refresh race condition | High | Add distributed lock or optimistic version check |
 | Onboarding time unvalidated | Low | User testing sprint before launch |
 `,
-  specComplianceSummary: 'Five of six verification criteria passed in full. VC-001 (real-time latency) was validated by both the realtime_engine pod and independently confirmed by integration_qa with a concrete E2E latency budget of 156–236ms. VC-002 and VC-006 were confirmed with explicit HTTP status codes and test code. VC-004 and VC-005 were addressed with working implementations. VC-006 is partial — Zod validation is demonstrated only on task routes; auth and project endpoints lack evidence. One minor violation was recorded. One spec update suggestion was made regarding cross-region deployment topology.',
+  specComplianceSummary:
+    'Five of six verification criteria passed in full. VC-001 (real-time latency) was validated by both the realtime_engine pod and independently confirmed by integration_qa with a concrete E2E latency budget of 156–236ms. VC-002 and VC-006 were confirmed with explicit HTTP status codes and test code. VC-004 and VC-005 were addressed with working implementations. VC-006 is partial — Zod validation is demonstrated only on task routes; auth and project endpoints lack evidence. One minor violation was recorded. One spec update suggestion was made regarding cross-region deployment topology.',
 };

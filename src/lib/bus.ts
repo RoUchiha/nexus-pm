@@ -1,12 +1,12 @@
 import type { BusMessage, MessageType } from '../types';
 
 const PATTERNS: Array<{ re: RegExp; type: MessageType; toAll: boolean }> = [
-  { re: /\[BROADCAST\]:\s*(.+)/gi,        type: 'broadcast',     toAll: true },
-  { re: /\[ALIGNED\]:\s*(.+)/gi,          type: 'aligned',       toAll: true },
-  { re: /\[RISK\]:\s*(.+)/gi,             type: 'risk',          toAll: true },
+  { re: /\[BROADCAST\]:\s*(.+)/gi, type: 'broadcast', toAll: true },
+  { re: /\[ALIGNED\]:\s*(.+)/gi, type: 'aligned', toAll: true },
+  { re: /\[RISK\]:\s*(.+)/gi, type: 'risk', toAll: true },
   { re: /\[SPEC-CONFLICT:[^\]]*\]:\s*(.+)/gi, type: 'spec_conflict', toAll: true },
-  { re: /\[REPORT→NEXUS\]:\s*(.+)/gi,     type: 'report',        toAll: false },
-  { re: /\[DIRECTIVE\]:\s*(.+)/gi,        type: 'directive',     toAll: true },
+  { re: /\[REPORT→NEXUS\]:\s*(.+)/gi, type: 'report', toAll: false },
+  { re: /\[DIRECTIVE\]:\s*(.+)/gi, type: 'directive', toAll: true },
 ];
 
 // [VC-REF: VC-001]: evidence text
@@ -102,13 +102,13 @@ export function stripBusMessages(text: string): string {
     .trim();
 }
 
-export function formatBusMessagesForPod(
-  messages: BusMessage[],
-  podId: string,
-): string {
-  const relevant = messages.filter(m => m.to === 'ALL' || m.to === podId);
+export function formatBusMessagesForPod(messages: BusMessage[], podId: string): string {
+  const relevant = messages.filter((m) => m.to === 'ALL' || m.to === podId);
   if (relevant.length === 0) return 'No bus messages yet.';
   return relevant
-    .map(m => `[${m.type.toUpperCase()} from ${m.from}${m.to !== 'ALL' ? ` → ${m.to}` : ''}]: ${m.content}`)
+    .map(
+      (m) =>
+        `[${m.type.toUpperCase()} from ${m.from}${m.to !== 'ALL' ? ` → ${m.to}` : ''}]: ${m.content}`,
+    )
     .join('\n');
 }

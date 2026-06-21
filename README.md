@@ -32,21 +32,21 @@ Mission → Spec Drafting → Pod Execution → Adversarial Verification → Syn
 
 The built-in demo requires no API key. Click **▶ Watch Demo** from the idle screen to replay:
 
-| Phase | What you'll see |
-|---|---|
-| Spec Drafting | Manager generates 6 EARS-format VCs, scope, constraints, and a 4-pod plan |
-| Wave 1 (parallel) | `Backend API Pod` + `Realtime Engine Pod` stream simultaneously |
-| Manager Check | NEXUS reviews wave 1 outputs and issues 2 directives to the frontend pod |
-| Wave 2 | `Frontend UI Pod` executes with manager directives injected into its context |
-| Wave 3 | `Integration QA Pod` cross-validates all contracts and flags a risk |
-| Verification | Verifier audits all 6 VCs — 5 pass, 1 partial, 1 minor violation |
-| Synthesis | Full executive report with compliance score, 9 deliverables, 8-step roadmap |
+| Phase             | What you'll see                                                              |
+| ----------------- | ---------------------------------------------------------------------------- |
+| Spec Drafting     | Manager generates 6 EARS-format VCs, scope, constraints, and a 4-pod plan    |
+| Wave 1 (parallel) | `Backend API Pod` + `Realtime Engine Pod` stream simultaneously              |
+| Manager Check     | NEXUS reviews wave 1 outputs and issues 2 directives to the frontend pod     |
+| Wave 2            | `Frontend UI Pod` executes with manager directives injected into its context |
+| Wave 3            | `Integration QA Pod` cross-validates all contracts and flags a risk          |
+| Verification      | Verifier audits all 6 VCs — 5 pass, 1 partial, 1 minor violation             |
+| Synthesis         | Full executive report with compliance score, 9 deliverables, 8-step roadmap  |
 
 The demo completes in ~30 seconds and showcases the full pipeline including the activity feed, bus messages, and manager-as-SSOT coordination.
 
 ---
 
-## Quick start (with your own API key)
+## Quick start
 
 ```bash
 git clone https://github.com/RoUchiha/nexus-pm
@@ -55,21 +55,21 @@ npm install
 npm run dev        # → http://localhost:5173
 ```
 
-Enter your API key in the Providers panel (UI, not a config file). Pick a free provider like **Groq** or run **Ollama** locally for zero-cost execution.
+The scripted demo and local Ollama work without cloud credentials. Remote providers require the authenticated server broker described in `.env.example`; provider keys are configured only as server environment variables and never enter the browser.
 
 ---
 
 ## Providers
 
-| Tier | Provider | Key needed |
-|------|----------|-----------|
-| 🆓 Free | Ollama (local) | No — runs on your machine |
-| ⚡ Freemium | Groq | Yes — free tier at console.groq.com |
-| ⚡ Freemium | Google Gemini | Yes — free tier at aistudio.google.com |
-| ⚡ Freemium | Mistral AI | Yes — free tier at console.mistral.ai |
-| ⚡ Freemium | Together AI | Yes — $25 free credit on signup |
-| 💳 Paid | OpenAI | Yes |
-| 💳 Paid | Anthropic Claude | Yes |
+| Tier        | Provider         | Credential location                |
+| ----------- | ---------------- | ---------------------------------- |
+| 🆓 Free     | Ollama (local)   | None; local loopback only          |
+| ⚡ Freemium | Groq             | Server environment / managed vault |
+| ⚡ Freemium | Google Gemini    | Server environment / managed vault |
+| ⚡ Freemium | Mistral AI       | Server environment / managed vault |
+| ⚡ Freemium | Together AI      | Server environment / managed vault |
+| 💳 Paid     | OpenAI           | Server environment / managed vault |
+| 💳 Paid     | Anthropic Claude | Server environment / managed vault |
 
 NEXUS tries **free → freemium → paid** automatically and falls back if a provider fails or rate-limits.
 
@@ -112,13 +112,11 @@ See [docs/security-assessment-2026-06-20.md](docs/security-assessment-2026-06-20
 
 - **Execution is bounded.** Provider requests and idle streams time out, retries are capped, and response size is limited.
 - **Model plans are untrusted.** Pod identifiers, dependencies, verification ownership, and DAG integrity are validated before execution.
-- **Connector credentials are memory-only.** Persisted connection metadata is redacted and must be re-authorized after reload.
-
-- **API keys are memory-only.** Provider choices are saved for the current tab, but API keys are stripped before `sessionStorage` writes and are cleared on reload or tab close.
-- **Provider calls are allowlisted.** The CSP allows only supported provider API domains plus local Ollama on `localhost:11434` / `127.0.0.1:11434`.
-- **No backend.** The app calls provider APIs directly from the browser.
-- **No `.env` required.** You can optionally set `VITE_ANTHROPIC_API_KEY` in a local `.env` file (gitignored) to pre-fill the Anthropic key, but all keys can be entered through the UI.
-- **Content Security Policy** in `index.html` whitelists only known provider API domains.
+- **Cloud secrets are server-only.** Authenticated provider calls flow through `/api/llm`; the browser has no cloud-provider API-key field or direct cloud-provider data path.
+- **Tenant controls fail closed.** Clerk JWT verification, authorized-party checks, Upstash-backed request/day/concurrency limits, and server allowlists run before provider or connector access.
+- **Connector secrets are vaulted.** Credentials are tenant-bound with AES-256-GCM and replaced client-side by an opaque vault reference after diagnosis.
+- **Security events are durable.** Redacted, correlation-aware events are retained in tenant-scoped Redis audit logs and emitted to structured platform logs.
+- **Response headers are deployable.** `vercel.json` configures CSP `frame-ancestors`, clickjacking, MIME, referrer, permissions, COOP/CORP, and HSTS headers.
 
 ---
 
@@ -158,16 +156,16 @@ src/
 
 Pods communicate mid-execution using structured tags parsed live from the stream:
 
-| Tag | Meaning |
-|-----|---------|
-| `[BROADCAST]: text` | Share finding with all pods |
-| `[SIGNAL→pod_id]: text` | Direct message to a specific pod |
-| `[ALIGNED]: decision` | Confirm a shared decision |
-| `[RISK]: description` | Flag a blocker or conflict |
-| `[VC-REF: VC-001]: evidence` | Cite spec compliance inline |
-| `[SPEC-CONFLICT: description]` | Flag a contradiction in the spec |
-| `[REPORT→NEXUS]: update` | Pod reports a key decision to the manager |
-| `[DIRECTIVE]: instruction` | Manager issues a directive to next-wave pods |
+| Tag                            | Meaning                                      |
+| ------------------------------ | -------------------------------------------- |
+| `[BROADCAST]: text`            | Share finding with all pods                  |
+| `[SIGNAL→pod_id]: text`        | Direct message to a specific pod             |
+| `[ALIGNED]: decision`          | Confirm a shared decision                    |
+| `[RISK]: description`          | Flag a blocker or conflict                   |
+| `[VC-REF: VC-001]: evidence`   | Cite spec compliance inline                  |
+| `[SPEC-CONFLICT: description]` | Flag a contradiction in the spec             |
+| `[REPORT→NEXUS]: update`       | Pod reports a key decision to the manager    |
+| `[DIRECTIVE]: instruction`     | Manager issues a directive to next-wave pods |
 
 ---
 
@@ -175,11 +173,11 @@ Pods communicate mid-execution using structured tags parsed live from the stream
 
 Three independent model roles — each configurable per provider in the UI:
 
-| Role | Used for | Default (Anthropic) |
-|------|----------|---------------------|
-| **Manager** | Spec drafting, wave checks, coordination, synthesis | `claude-opus-4-8` |
-| **Pod** | Parallel agent execution | `claude-sonnet-4-6` |
-| **Verifier** | Adversarial spec audit (separate from pods) | `claude-sonnet-4-6` |
+| Role         | Used for                                            | Default (Anthropic) |
+| ------------ | --------------------------------------------------- | ------------------- |
+| **Manager**  | Spec drafting, wave checks, coordination, synthesis | `claude-opus-4-8`   |
+| **Pod**      | Parallel agent execution                            | `claude-sonnet-4-6` |
+| **Verifier** | Adversarial spec audit (separate from pods)         | `claude-sonnet-4-6` |
 
 Using different models per role keeps context pressure off the expensive manager model during parallel pod execution, and lets the verifier use a large-context model optimized for reading many pod outputs at once.
 

@@ -1,4 +1,11 @@
-import type { Pod, MissionSpec, VerificationCriterion, BusMessage, WorkerAgentConnection, ConnectorConfig } from '../types';
+import type {
+  Pod,
+  MissionSpec,
+  VerificationCriterion,
+  BusMessage,
+  WorkerAgentConnection,
+  ConnectorConfig,
+} from '../types';
 import { truncateForContext } from './security';
 import { formatBusMessagesForPod } from './bus';
 import { connectorPromptSummary } from './connectorAgent';
@@ -6,14 +13,14 @@ import { connectorPromptSummary } from './connectorAgent';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function specToText(spec: MissionSpec): string {
-  const vcs = spec.verificationCriteria.map(
-    v => `  ${v.id} [${v.category}]: ${v.description}`,
-  ).join('\n');
+  const vcs = spec.verificationCriteria
+    .map((v) => `  ${v.id} [${v.category}]: ${v.description}`)
+    .join('\n');
 
   return `MISSION: ${spec.mission}
 
 OUTCOMES (must all be achieved):
-${spec.outcomes.map(o => `  • ${o}`).join('\n')}
+${spec.outcomes.map((o) => `  • ${o}`).join('\n')}
 
 SCOPE:
   In:  ${spec.scope.in.join(' | ')}
@@ -116,11 +123,17 @@ export function specDraftingUser(
   workerAgents: WorkerAgentConnection[] = [],
   connectors: ConnectorConfig[] = [],
 ): string {
-  const workerRoster = workerAgents.length > 0
-    ? `\n\nCONNECTED COMPANY WORKER AGENTS:\n${workerAgents.map(agent => (
-      `- ${agent.name} (owner: ${agent.ownerName || 'unassigned'}): ${agent.capabilities || 'no capabilities declared'}`
-    )).join('\n')}\n\nWhen practical, shape pod roles and handoff context so these worker agents can fulfill tasks manually under manager review.`
-    : '';
+  const workerRoster =
+    workerAgents.length > 0
+      ? `\n\nCONNECTED COMPANY WORKER AGENTS:\n${workerAgents
+          .map(
+            (agent) =>
+              `- ${agent.name} (owner: ${agent.ownerName || 'unassigned'}): ${agent.capabilities || 'no capabilities declared'}`,
+          )
+          .join(
+            '\n',
+          )}\n\nWhen practical, shape pod roles and handoff context so these worker agents can fulfill tasks manually under manager review.`
+      : '';
   const connectorSummary = connectorPromptSummary(connectors);
   const connectorContext = connectorSummary
     ? `\n\nAPPROVED CONNECTOR CAPABILITIES (metadata only; never request or expose credentials):\n${connectorSummary}\nPlan only against these declared capabilities. Any write or side-effecting operation remains subject to the connector control mode and operator approval.`
@@ -141,18 +154,23 @@ export function podSystem(
   busMessages: BusMessage[],
   managerDirectives?: string,
 ): string {
-  const myVCs: VerificationCriterion[] = spec.verificationCriteria.filter(
-    v => pod.vcIds.includes(v.id),
+  const myVCs: VerificationCriterion[] = spec.verificationCriteria.filter((v) =>
+    pod.vcIds.includes(v.id),
   );
-  const vcText = myVCs.length > 0
-    ? myVCs.map(v => `  ${v.id}: ${v.description}`).join('\n')
-    : '  (no VCs directly assigned — support other pods)';
+  const vcText =
+    myVCs.length > 0
+      ? myVCs.map((v) => `  ${v.id}: ${v.description}`).join('\n')
+      : '  (no VCs directly assigned — support other pods)';
 
-  const depSection = Object.entries(depOutputs).length > 0
-    ? Object.entries(depOutputs)
-        .map(([id, out]) => `--- Output from ${id} ---\n${truncateForContext(stripBusTags(out), 1800)}`)
-        .join('\n\n')
-    : 'No dependency outputs — this pod runs first.';
+  const depSection =
+    Object.entries(depOutputs).length > 0
+      ? Object.entries(depOutputs)
+          .map(
+            ([id, out]) =>
+              `--- Output from ${id} ---\n${truncateForContext(stripBusTags(out), 1800)}`,
+          )
+          .join('\n\n')
+      : 'No dependency outputs — this pod runs first.';
 
   return `You are ${pod.name}, an expert ${pod.role} in the NEXUS fleet operating under Spec-Driven Development.
 
@@ -192,10 +210,14 @@ INTER-AGENT COMMUNICATION PROTOCOL:
   [VC-REF: VC-XXX]: <evidence> — cite spec compliance (use inline, not as a separate line)
   [REPORT→NEXUS]: <update> — report a key decision or finding to the NEXUS manager
 
-${managerDirectives ? `MANAGER DIRECTIVES (from NEXUS — follow these):
+${
+  managerDirectives
+    ? `MANAGER DIRECTIVES (from NEXUS — follow these):
 ${managerDirectives}
 
-` : ''}YOUR DELIVERABLE: ${pod.deliverable}
+`
+    : ''
+}YOUR DELIVERABLE: ${pod.deliverable}
 
 Execute thoroughly. Address all your assigned VCs with explicit evidence.`;
 }
@@ -280,20 +302,26 @@ export function workerReviewUser(
   busMessages: BusMessage[],
   submittedOutput: string,
 ): string {
-  const vcText = spec.verificationCriteria
-    .filter(v => pod.vcIds.includes(v.id))
-    .map(v => `  ${v.id} [${v.category}]: ${v.description}`)
-    .join('\n') || '  No VCs directly assigned.';
+  const vcText =
+    spec.verificationCriteria
+      .filter((v) => pod.vcIds.includes(v.id))
+      .map((v) => `  ${v.id} [${v.category}]: ${v.description}`)
+      .join('\n') || '  No VCs directly assigned.';
 
-  const depSection = Object.entries(depOutputs).length > 0
-    ? Object.entries(depOutputs)
-        .map(([id, out]) => `--- Output from ${id} ---\n${truncateForContext(stripBusTags(out), 1400)}`)
-        .join('\n\n')
-    : 'No dependency outputs.';
+  const depSection =
+    Object.entries(depOutputs).length > 0
+      ? Object.entries(depOutputs)
+          .map(
+            ([id, out]) =>
+              `--- Output from ${id} ---\n${truncateForContext(stripBusTags(out), 1400)}`,
+          )
+          .join('\n\n')
+      : 'No dependency outputs.';
 
-  const busText = busMessages
-    .map(m => `[${m.type.toUpperCase()}] ${m.from}->${m.to}: ${m.content}`)
-    .join('\n') || 'No bus messages.';
+  const busText =
+    busMessages
+      .map((m) => `[${m.type.toUpperCase()}] ${m.from}->${m.to}: ${m.content}`)
+      .join('\n') || 'No bus messages.';
 
   return `COMPANY WORKER AGENT:
 Name: ${workerAgent.name}
@@ -379,13 +407,17 @@ export function verificationUser(
 ): string {
   const specText = specToText(spec);
   const outputs = pods
-    .filter(p => p.status === 'completed')
-    .map(p => `=== POD: ${p.id} (${p.name}) ===\nResponsibility: ${p.responsibility}\nAssigned VCs: ${p.vcIds.join(', ')}\n\nOUTPUT:\n${truncateForContext(p.output, 2000)}`)
+    .filter((p) => p.status === 'completed')
+    .map(
+      (p) =>
+        `=== POD: ${p.id} (${p.name}) ===\nResponsibility: ${p.responsibility}\nAssigned VCs: ${p.vcIds.join(', ')}\n\nOUTPUT:\n${truncateForContext(p.output, 2000)}`,
+    )
     .join('\n\n');
 
-  const busText = busMessages
-    .map(m => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
-    .join('\n') || 'No bus messages.';
+  const busText =
+    busMessages
+      .map((m) => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
+      .join('\n') || 'No bus messages.';
 
   return `BINDING SPEC:
 ${specText}
@@ -426,13 +458,17 @@ export function coordinationUser(
   busMessages: BusMessage[],
 ): string {
   const outputs = pods
-    .filter(p => p.status === 'completed')
-    .map(p => `=== ${p.id} (${p.name}) ===\nVCs: ${p.vcIds.join(', ')}\n${truncateForContext(stripBusTags(p.output), 1200)}`)
+    .filter((p) => p.status === 'completed')
+    .map(
+      (p) =>
+        `=== ${p.id} (${p.name}) ===\nVCs: ${p.vcIds.join(', ')}\n${truncateForContext(stripBusTags(p.output), 1200)}`,
+    )
     .join('\n\n');
 
-  const bus = busMessages
-    .map(m => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
-    .join('\n') || 'No bus messages.';
+  const bus =
+    busMessages
+      .map((m) => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
+      .join('\n') || 'No bus messages.';
 
   return `Mission: ${mission}
 Spec outcomes: ${spec.outcomes.join(' | ')}
@@ -471,18 +507,22 @@ export function synthesisUser(
   corrections: Array<{ podId: string; task: string }>,
 ): string {
   const outputs = pods
-    .map(p => `=== ${p.name} (${p.id}) ===\nStatus: ${p.status}\nVCs: ${p.vcIds.join(', ')}\n${truncateForContext(stripBusTags(p.output), 1500)}`)
+    .map(
+      (p) =>
+        `=== ${p.name} (${p.id}) ===\nStatus: ${p.status}\nVCs: ${p.vcIds.join(', ')}\n${truncateForContext(stripBusTags(p.output), 1500)}`,
+    )
     .join('\n\n');
 
   const verificationSection = verification
     ? `VERIFICATION RESULTS (${Math.round(verification.overallCompliance * 100)}% compliance):
-${verification.vcResults.map(r => `  ${r.id}: ${r.status.toUpperCase()}${r.gap ? ' — gap: ' + r.gap : ''}`).join('\n')}
+${verification.vcResults.map((r) => `  ${r.id}: ${r.status.toUpperCase()}${r.gap ? ' — gap: ' + r.gap : ''}`).join('\n')}
 Violations: ${verification.violations.length}`
     : 'Verification not available.';
 
-  const correctionNote = corrections.length > 0
-    ? `\nCORRECTIONS APPLIED:\n${corrections.map(c => `- ${c.podId}: ${c.task}`).join('\n')}`
-    : '';
+  const correctionNote =
+    corrections.length > 0
+      ? `\nCORRECTIONS APPLIED:\n${corrections.map((c) => `- ${c.podId}: ${c.task}`).join('\n')}`
+      : '';
 
   return `Mission: ${mission}
 
@@ -532,12 +572,16 @@ export function managerWaveCheckUser(
   busMessages: BusMessage[],
 ): string {
   const completedSection = completedPods
-    .map(p => `=== ${p.name} (${p.id}) ===\nVCs: ${p.vcIds.join(', ')}\nStatus: ${p.status}\n${truncateForContext(stripBusTags(p.output), 1200)}`)
+    .map(
+      (p) =>
+        `=== ${p.name} (${p.id}) ===\nVCs: ${p.vcIds.join(', ')}\nStatus: ${p.status}\n${truncateForContext(stripBusTags(p.output), 1200)}`,
+    )
     .join('\n\n');
 
-  const busText = busMessages
-    .map(m => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
-    .join('\n') || 'No bus messages.';
+  const busText =
+    busMessages
+      .map((m) => `[${m.type.toUpperCase()}] ${m.from}→${m.to}: ${m.content}`)
+      .join('\n') || 'No bus messages.';
 
   return `Wave ${waveNumber} completed. Pods awaiting directives for next wave: ${pendingPodIds.join(', ')}
 

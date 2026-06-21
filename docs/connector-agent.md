@@ -14,27 +14,26 @@ Definitions live in `src/lib/connectorAgent.ts`; domain contracts live in `src/t
 
 ## Safety model
 
-1. The user enters an HTTPS endpoint, least-privilege scopes, authentication method, and a session credential.
+1. The user enters an HTTPS endpoint, least-privilege scopes, authentication method, and a credential for one enrollment request.
 2. The Connector Agent rejects insecure, loopback, link-local, private-network, credential-bearing, or fragment-bearing URLs.
 3. Diagnostics show every issue and a concrete remediation sequence. Secret values are never included.
 4. The user explicitly approves the connection after reviewing endpoint, scopes, and control mode.
 5. Only enabled, approved, routing-ready connectors are exposed to mission planning, and only capability metadata reaches prompts.
 6. Supervised routes require operator approval. The operator can steer, pause, resume, or take over.
-7. Production execution must occur through a same-origin server-side broker. The browser never directly connects to a database, repository write API, arbitrary agent, or generic API.
+7. Diagnosis sends the credential only to the same-origin authenticated broker, which encrypts it with tenant-bound AES-256-GCM and returns an opaque vault reference. The browser never directly connects to a database, repository write API, arbitrary agent, or generic API.
 
-Reloading intentionally clears every credential and approval. Persisted connector configuration is redacted and returns to `draft` status.
+Persisted browser configuration is redacted. Server-vaulted credentials remain tenant-scoped; approval and routing state remain explicit.
 
 ## Production broker contract
 
-The next deployment tier should implement these same-origin endpoints:
+The repository implements authenticated provider, connector diagnosis/vault, and security-event endpoints. The remaining execution control plane should add:
 
-| Endpoint | Purpose |
-| --- | --- |
-| `POST /api/connectors/diagnose` | Resolve DNS, enforce egress allowlists, validate TLS, exchange OAuth, and run a read-only health probe. |
-| `POST /api/routes/plan` | Bind requested capabilities to approved connector and policy versions. |
-| `POST /api/executions` | Create an idempotent, policy-checked connector execution. Never accept a raw long-lived secret. |
-| `GET /api/executions/:id` | Stream status, redacted logs, retries, cost, and trace identifiers. |
-| `POST /api/executions/:id/control` | Approve, reject, pause, resume, steer, retry, or cancel an execution. |
+| Endpoint                           | Purpose                                                                                         |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `POST /api/routes/plan`            | Bind requested capabilities to approved connector and policy versions.                          |
+| `POST /api/executions`             | Create an idempotent, policy-checked connector execution. Never accept a raw long-lived secret. |
+| `GET /api/executions/:id`          | Stream status, redacted logs, retries, cost, and trace identifiers.                             |
+| `POST /api/executions/:id/control` | Approve, reject, pause, resume, steer, retry, or cancel an execution.                           |
 
 Every request should carry organization, project, actor, mission, policy-version, and idempotency identifiers. Credentials should be referenced by vault ID and exchanged for short-lived grants inside the broker.
 

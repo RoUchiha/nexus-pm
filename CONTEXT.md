@@ -1,6 +1,7 @@
 # NEXUS PM — Full Session Context
 
 ## Repo
+
 **https://github.com/RoUchiha/nexus-pm**  
 Local: `C:\Users\Roshaan\Documents\nexus-pm`  
 Dev server: `npm install && npm run dev` → http://localhost:5173
@@ -9,6 +10,7 @@ Dev server: `npm install && npm run dev` → http://localhost:5173
 ---
 
 ## What was built
+
 A **Spec-Driven Development (SDD) AI Project Manager** — React 18 + TypeScript strict + Vite. No backend. Browser-only, all API calls go directly to provider endpoints.
 
 ---
@@ -19,13 +21,13 @@ A **Spec-Driven Development (SDD) AI Project Manager** — React 18 + TypeScript
 idle → spec_drafting → deploying → executing → verifying → synthesis → complete
 ```
 
-| Phase | What happens |
-|---|---|
-| `spec_drafting` | NEXUS Manager writes `MissionSpec` + pod plan in one JSON call |
-| `deploying` | Pod state initialized, brief visual pause |
-| `executing` | Pods run in DAG-ordered **waves**. After each wave, NEXUS Manager reviews outputs and issues directives to next-wave pods (manager-as-SSOT). Live streaming, spec-locked. In company-worker mode, each pod waits for a connected worker agent to claim, submit, and pass manager review |
-| `verifying` | Adversarial Verifier (separate model role from pods) audits every VC |
-| `synthesis` | Executive report with compliance score, deliverables, roadmap |
+| Phase           | What happens                                                                                                                                                                                                                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spec_drafting` | NEXUS Manager writes `MissionSpec` + pod plan in one JSON call                                                                                                                                                                                                                          |
+| `deploying`     | Pod state initialized, brief visual pause                                                                                                                                                                                                                                               |
+| `executing`     | Pods run in DAG-ordered **waves**. After each wave, NEXUS Manager reviews outputs and issues directives to next-wave pods (manager-as-SSOT). Live streaming, spec-locked. In company-worker mode, each pod waits for a connected worker agent to claim, submit, and pass manager review |
+| `verifying`     | Adversarial Verifier (separate model role from pods) audits every VC                                                                                                                                                                                                                    |
+| `synthesis`     | Executive report with compliance score, deliverables, roadmap                                                                                                                                                                                                                           |
 
 ---
 
@@ -146,25 +148,26 @@ interface NexusState {
 
 **7 providers, tried in order: free → freemium → paid**
 
-| ID | Tier | Format | Key prefix |
-|---|---|---|---|
-| `ollama` | free | openai-compat | none (localhost:11434) |
-| `groq` | freemium | openai-compat | `gsk_` |
-| `gemini` | freemium | gemini | `AIza` |
-| `mistral` | freemium | openai-compat | — |
-| `together` | freemium | openai-compat | — |
-| `openai` | paid | openai-compat | `sk-` |
-| `anthropic` | paid | anthropic | `sk-ant-` |
+| ID          | Tier     | Format        | Key prefix             |
+| ----------- | -------- | ------------- | ---------------------- |
+| `ollama`    | free     | openai-compat | none (localhost:11434) |
+| `groq`      | freemium | openai-compat | `gsk_`                 |
+| `gemini`    | freemium | gemini        | `AIza`                 |
+| `mistral`   | freemium | openai-compat | —                      |
+| `together`  | freemium | openai-compat | —                      |
+| `openai`    | paid     | openai-compat | `sk-`                  |
+| `anthropic` | paid     | anthropic     | `sk-ant-`              |
 
 **3 model roles per provider** (all configurable in UI):
 
-| Role | Used for | Anthropic default |
-|---|---|---|
-| `manager` | Spec drafting, wave checks, coordination, synthesis | `claude-opus-4-8` |
-| `pod` | Parallel pod execution | `claude-sonnet-4-6` |
-| `verifier` | Adversarial spec auditor (separate from pods) | `claude-sonnet-4-6` |
+| Role       | Used for                                            | Anthropic default   |
+| ---------- | --------------------------------------------------- | ------------------- |
+| `manager`  | Spec drafting, wave checks, coordination, synthesis | `claude-opus-4-8`   |
+| `pod`      | Parallel pod execution                              | `claude-sonnet-4-6` |
+| `verifier` | Adversarial spec auditor (separate from pods)       | `claude-sonnet-4-6` |
 
 Key functions:
+
 - `resolveProviders(configs, role)` → sorted `ResolvedProvider[]` — role can be `'manager'|'pod'|'verifier'`
 - `streamWithFallback(providers, role, system, messages, callbacks, signal)` → tries each provider, auto-fallbacks
 - `jsonWithFallback<T>(providers, role, system, user, signal)` → returns `{result: T, usedProvider: string}`
@@ -253,6 +256,7 @@ workerRunContextRef  { mission, spec, managerProviders, signal } // manager revi
 ## Demo mode (src/demo/)
 
 The built-in demo replays a scripted mission without any API keys:
+
 - **Mission:** "Build a real-time collaborative project tracking dashboard for remote engineering teams"
 - **Spec:** 6 VCs (VC-001 through VC-006), 4 pods in 3 DAG waves
 - **Wave 1:** `backend_api` + `realtime_engine` (parallel)
@@ -267,12 +271,14 @@ The built-in demo replays a scripted mission without any API keys:
 ---
 
 ## Security/readiness docs
+
 - `docs/company-worker-agents.md` documents worker-agent handoff, review, and state flow
 - `docs/production-readiness.md` documents threat model, implemented controls, validation checklist, and enterprise boundaries
 
 ---
 
 ## Security model
+
 - API keys stay in memory only; provider choices persist without secrets
 - CSP allowlists provider APIs and local Ollama on port 11434; blocks inline scripts, objects, frames, and forms
 - `.env` is gitignored; optional `VITE_ANTHROPIC_API_KEY` for pre-fill only
@@ -293,6 +299,7 @@ The built-in demo replays a scripted mission without any API keys:
 ---
 
 ## What's NOT done yet (good next PRs)
+
 - Spec editor UI — let user edit the spec before pods fire
 - Re-run failed pods individually
 - Export spec as YAML/JSON file
@@ -307,6 +314,7 @@ The built-in demo replays a scripted mission without any API keys:
 ---
 
 ## Dev commands
+
 ```bash
 npm run dev        # Vite dev server → localhost:5173
 npm run build      # tsc + vite build
@@ -314,5 +322,6 @@ npm run typecheck  # tsc --noEmit only
 ```
 
 ## Claude Code
+
 `CLAUDE.md` at root gives full context automatically.  
 `.claude/agents/nexus-architect.md` activates on orchestration changes.

@@ -47,11 +47,15 @@ export interface ResolvedProvider {
 export type VCStatus = 'pending' | 'passed' | 'failed' | 'partial';
 export type VCCategory = 'functional' | 'quality' | 'constraint' | 'integration';
 export type SpecStatus = 'draft' | 'active' | 'verified' | 'complete';
-export type SpecViolationType = 'scope_creep' | 'constraint_violation' | 'missing_vc' | 'consistency';
+export type SpecViolationType =
+  | 'scope_creep'
+  | 'constraint_violation'
+  | 'missing_vc'
+  | 'consistency';
 
 export interface VerificationCriterion {
-  id: string;            // VC-001, VC-002...
-  description: string;   // EARS-format single testable claim
+  id: string; // VC-001, VC-002...
+  description: string; // EARS-format single testable claim
   category: VCCategory;
   testable: boolean;
   assignedPodId?: string;
@@ -63,15 +67,15 @@ export interface SpecScope {
 }
 
 export interface SpecConstraints {
-  always: string[];      // always-do actions
-  askFirst: string[];    // ask before doing
-  never: string[];       // never-do actions
+  always: string[]; // always-do actions
+  askFirst: string[]; // ask before doing
+  never: string[]; // never-do actions
 }
 
 export interface PodSpecSection {
   podId: string;
   responsibility: string;
-  vcIds: string[];       // VC IDs this pod is accountable for
+  vcIds: string[]; // VC IDs this pod is accountable for
 }
 
 export interface MissionSpec {
@@ -92,9 +96,9 @@ export interface MissionSpec {
 export interface VCResult {
   id: string;
   status: VCStatus;
-  evidence: string;      // direct quote from pod output
-  gap: string;           // what's missing if failed/partial
-  satisfiedBy: string;   // pod id
+  evidence: string; // direct quote from pod output
+  gap: string; // what's missing if failed/partial
+  satisfiedBy: string; // pod id
 }
 
 export interface SpecViolation {
@@ -111,7 +115,7 @@ export interface SpecUpdate {
 }
 
 export interface VerificationResult {
-  overallCompliance: number;   // 0.0–1.0
+  overallCompliance: number; // 0.0–1.0
   vcResults: VCResult[];
   violations: SpecViolation[];
   specUpdates: SpecUpdate[];
@@ -128,11 +132,21 @@ export type AppPhase =
   | 'verifying'
   | 'synthesis'
   | 'complete'
+  | 'aborted'
   | 'error';
 
 export type PodStatus = 'queued' | 'waiting' | 'running' | 'reviewing' | 'completed' | 'failed';
 
-export type MessageType = 'broadcast' | 'signal' | 'aligned' | 'risk' | 'spec_ref' | 'spec_conflict' | 'system' | 'report' | 'directive';
+export type MessageType =
+  | 'broadcast'
+  | 'signal'
+  | 'aligned'
+  | 'risk'
+  | 'spec_ref'
+  | 'spec_conflict'
+  | 'system'
+  | 'report'
+  | 'directive';
 
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 
@@ -157,8 +171,8 @@ export interface PodBlueprint {
   dependencies: string[];
   deliverable: string;
   context: string;
-  vcIds: string[];         // assigned verification criteria
-  responsibility: string;  // spec-level responsibility statement
+  vcIds: string[]; // assigned verification criteria
+  responsibility: string; // spec-level responsibility statement
 }
 
 export interface LogEntry {
@@ -257,7 +271,13 @@ export interface WorkerRunOptions {
 // Connector control plane. Credentials are memory-only and must never be
 // persisted, logged, or included in model prompts.
 export type ConnectorKind = 'llm' | 'database' | 'repository' | 'agent' | 'api';
-export type ConnectorAuthType = 'none' | 'api_key' | 'bearer' | 'oauth2' | 'basic' | 'connection_string';
+export type ConnectorAuthType =
+  | 'none'
+  | 'api_key'
+  | 'bearer'
+  | 'oauth2'
+  | 'basic'
+  | 'connection_string';
 export type ConnectorStatus = 'draft' | 'checking' | 'ready' | 'degraded' | 'blocked' | 'paused';
 export type ConnectorControlMode = 'autonomous' | 'supervised' | 'manual';
 export type ConnectorSeverity = 'info' | 'warning' | 'error';
@@ -298,6 +318,7 @@ export interface ConnectorConfig {
   endpoint: string;
   authType: ConnectorAuthType;
   credentials: ConnectorCredentials;
+  credentialRef?: string;
   scopes: string[];
   enabled: boolean;
   approved: boolean;
@@ -352,13 +373,13 @@ export type ActivityAction =
 export interface ActivityLogEntry {
   id: string;
   timestamp: number;
-  agentId: string;        // 'nexus-manager', 'pod:research_pod', 'nexus-verifier'
-  agentName: string;      // human readable label
+  agentId: string; // 'nexus-manager', 'pod:research_pod', 'nexus-verifier'
+  agentName: string; // human readable label
   phase: AppPhase;
   action: ActivityAction;
   missionPortion: string; // what part of the mission this covers
-  reasoning: string;      // the logic that led to this action
-  details?: string;       // extra context, VC refs, etc.
+  reasoning: string; // the logic that led to this action
+  details?: string; // extra context, VC refs, etc.
 }
 
 export interface NexusState {

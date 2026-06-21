@@ -11,8 +11,20 @@ function validPlan() {
       ],
     },
     pods: [
-      { id: 'research', name: 'Research', deliverable: 'Evidence', dependencies: [] as string[], vcIds: ['VC-001'] },
-      { id: 'review', name: 'Review', deliverable: 'Decision', dependencies: ['research'], vcIds: ['VC-002'] },
+      {
+        id: 'research',
+        name: 'Research',
+        deliverable: 'Evidence',
+        dependencies: [] as string[],
+        vcIds: ['VC-001'],
+      },
+      {
+        id: 'review',
+        name: 'Review',
+        deliverable: 'Decision',
+        dependencies: ['research'],
+        vcIds: ['VC-002'],
+      },
     ],
   };
 }
@@ -48,5 +60,17 @@ describe('model-generated execution plan validation', () => {
     const unassigned = validPlan();
     unassigned.pods[1].vcIds = [];
     expect(() => validateManagerPlan(unassigned)).toThrow(/assigned to a pod/);
+  });
+
+  it('rejects plans that exceed the enterprise execution fan-out limit', () => {
+    const plan = validPlan();
+    plan.pods = Array.from({ length: 9 }, (_, index) => ({
+      id: `pod_${index}`,
+      name: `Pod ${index}`,
+      deliverable: `Deliverable ${index}`,
+      dependencies: [] as string[],
+      vcIds: index === 0 ? ['VC-001', 'VC-002'] : [],
+    }));
+    expect(() => validateManagerPlan(plan)).toThrow(/between 1 and 8/);
   });
 });

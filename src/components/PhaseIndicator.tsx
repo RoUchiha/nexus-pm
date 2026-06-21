@@ -4,14 +4,15 @@ import type { AppPhase } from '../types';
 const ORDER: AppPhase[] = ['spec_drafting', 'executing', 'verifying', 'synthesis', 'complete'];
 
 const LABELS: Record<AppPhase, string> = {
-  idle:          'Idle',
+  idle: 'Idle',
   spec_drafting: 'Spec',
-  deploying:     'Execute',
-  executing:     'Execute',
-  verifying:     'Verify',
-  synthesis:     'Synthesize',
-  complete:      'Complete',
-  error:         'Error',
+  deploying: 'Execute',
+  executing: 'Execute',
+  verifying: 'Verify',
+  synthesis: 'Synthesize',
+  complete: 'Complete',
+  aborted: 'Aborted',
+  error: 'Error',
 };
 
 function phaseIndex(phase: AppPhase): number {
@@ -19,9 +20,22 @@ function phaseIndex(phase: AppPhase): number {
   return ORDER.indexOf(phase);
 }
 
-interface Props { phase: AppPhase; }
+interface Props {
+  phase: AppPhase;
+}
 
 export function PhaseIndicator({ phase }: Props) {
+  if (phase === 'aborted') {
+    return (
+      <div className="phase-bar" role="status" aria-label="Mission aborted">
+        <div className="phase-step error">
+          <div className="phase-dot" />
+          Aborted
+        </div>
+      </div>
+    );
+  }
+
   const current = phaseIndex(phase);
   const isError = phase === 'error';
 
@@ -29,12 +43,14 @@ export function PhaseIndicator({ phase }: Props) {
     <div className="phase-bar">
       {ORDER.map((p, i) => {
         const idx = phaseIndex(p);
-        const done   = current > idx;
+        const done = current > idx;
         const active = current === idx;
 
         return (
           <div key={p} style={{ display: 'flex', alignItems: 'center' }}>
-            <div className={`phase-step ${active ? (isError ? 'error' : 'active') : done ? 'done' : ''}`}>
+            <div
+              className={`phase-step ${active ? (isError ? 'error' : 'active') : done ? 'done' : ''}`}
+            >
               <div className="phase-dot" />
               {LABELS[p]}
             </div>

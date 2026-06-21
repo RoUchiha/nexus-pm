@@ -55,8 +55,10 @@ export function WorkerAgentsPanel({
   const [copiedPodId, setCopiedPodId] = useState<string | null>(null);
 
   const isIdle = phase === 'idle';
-  const enabledAgents = useMemo(() => agents.filter(agent => agent.enabled), [agents]);
-  const activeAssignments = assignments.filter(assignment => pods.some(pod => pod.id === assignment.podId));
+  const enabledAgents = useMemo(() => agents.filter((agent) => agent.enabled), [agents]);
+  const activeAssignments = assignments.filter((assignment) =>
+    pods.some((pod) => pod.id === assignment.podId),
+  );
 
   useEffect(() => {
     if (activeAssignments.length > 0) setExpanded(true);
@@ -89,16 +91,15 @@ export function WorkerAgentsPanel({
   };
 
   const updateAgent = (id: string, patch: Partial<WorkerAgentConnection>) => {
-    setAgents(agents.map(agent => agent.id === id ? { ...agent, ...patch } : agent));
+    setAgents(agents.map((agent) => (agent.id === id ? { ...agent, ...patch } : agent)));
   };
 
   const removeAgent = (id: string) => {
-    setAgents(agents.filter(agent => agent.id !== id));
+    setAgents(agents.filter((agent) => agent.id !== id));
   };
 
-  const selectedWorkerFor = (podId: string): string => (
-    selectedWorkers[podId] ?? enabledAgents[0]?.id ?? ''
-  );
+  const selectedWorkerFor = (podId: string): string =>
+    selectedWorkers[podId] ?? enabledAgents[0]?.id ?? '';
 
   const copyHandoff = async (assignment: WorkerPodAssignment) => {
     if (!assignment.handoffPrompt) return;
@@ -115,11 +116,11 @@ export function WorkerAgentsPanel({
     const output = clampText(outputDrafts[podId] ?? '', MAX_WORKER_OUTPUT_LENGTH);
     if (!output) return;
 
-    setSubmittingPods(prev => new Set(prev).add(podId));
+    setSubmittingPods((prev) => new Set(prev).add(podId));
     try {
       await onSubmit(podId, output);
     } finally {
-      setSubmittingPods(prev => {
+      setSubmittingPods((prev) => {
         const next = new Set(prev);
         next.delete(podId);
         return next;
@@ -129,7 +130,7 @@ export function WorkerAgentsPanel({
 
   return (
     <section className="worker-panel">
-      <div className="worker-panel-header" onClick={() => setExpanded(value => !value)}>
+      <div className="worker-panel-header">
         <div>
           <div className="section-title">Company Worker Agents</div>
           <div className="worker-panel-sub">
@@ -138,17 +139,23 @@ export function WorkerAgentsPanel({
           </div>
         </div>
 
-        <div className="worker-panel-actions" onClick={event => event.stopPropagation()}>
+        <div className="worker-panel-actions">
           <label className={`worker-mode-toggle ${mode === 'company_workers' ? 'active' : ''}`}>
             <input
               type="checkbox"
               checked={mode === 'company_workers'}
               disabled={!isIdle}
-              onChange={event => onModeChange(event.target.checked ? 'company_workers' : 'autonomous')}
+              onChange={(event) =>
+                onModeChange(event.target.checked ? 'company_workers' : 'autonomous')
+              }
             />
             Worker routing
           </label>
-          <button className="btn btn-ghost worker-expand-btn" onClick={() => setExpanded(value => !value)}>
+          <button
+            className="btn btn-ghost worker-expand-btn"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
             {expanded ? 'Hide' : 'Manage'}
           </button>
         </div>
@@ -160,7 +167,7 @@ export function WorkerAgentsPanel({
             {agents.length === 0 ? (
               <div className="worker-empty">No company worker agents connected.</div>
             ) : (
-              agents.map(agent => (
+              agents.map((agent) => (
                 <div key={agent.id} className="worker-agent-row">
                   <button
                     className={`worker-agent-toggle ${agent.enabled ? 'enabled' : ''}`}
@@ -171,11 +178,15 @@ export function WorkerAgentsPanel({
                   <div className="worker-agent-main">
                     <div className="worker-agent-name">{agent.name}</div>
                     <div className="worker-agent-meta">
-                      {agent.ownerName || 'Unassigned owner'} · {agent.capabilities || 'No capabilities declared'}
+                      {agent.ownerName || 'Unassigned owner'} ·{' '}
+                      {agent.capabilities || 'No capabilities declared'}
                     </div>
                   </div>
                   {isIdle && (
-                    <button className="btn btn-ghost worker-remove-btn" onClick={() => removeAgent(agent.id)}>
+                    <button
+                      className="btn btn-ghost worker-remove-btn"
+                      onClick={() => removeAgent(agent.id)}
+                    >
                       Remove
                     </button>
                   )}
@@ -191,28 +202,28 @@ export function WorkerAgentsPanel({
                 placeholder="Agent name"
                 value={draftName}
                 maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
-                onChange={event => setDraftName(event.target.value)}
+                onChange={(event) => setDraftName(event.target.value)}
               />
               <input
                 className="input"
                 placeholder="Worker owner"
                 value={draftOwner}
                 maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
-                onChange={event => setDraftOwner(event.target.value)}
+                onChange={(event) => setDraftOwner(event.target.value)}
               />
               <input
                 className="input worker-capabilities-input"
                 placeholder="Capabilities"
                 value={draftCapabilities}
                 maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
-                onChange={event => setDraftCapabilities(event.target.value)}
+                onChange={(event) => setDraftCapabilities(event.target.value)}
               />
               <input
                 className="input worker-notes-input"
                 placeholder="Connection notes"
                 value={draftNotes}
                 maxLength={MAX_WORKER_AGENT_FIELD_LENGTH}
-                onChange={event => setDraftNotes(event.target.value)}
+                onChange={(event) => setDraftNotes(event.target.value)}
               />
               <button className="btn btn-primary" onClick={addAgent} disabled={!draftName.trim()}>
                 Connect Agent
@@ -223,9 +234,9 @@ export function WorkerAgentsPanel({
           {activeAssignments.length > 0 && (
             <div className="worker-assignments">
               <div className="label">Manager Handoffs</div>
-              {activeAssignments.map(assignment => {
-                const pod = pods.find(item => item.id === assignment.podId);
-                const worker = agents.find(agent => agent.id === assignment.workerAgentId);
+              {activeAssignments.map((assignment) => {
+                const pod = pods.find((item) => item.id === assignment.podId);
+                const worker = agents.find((agent) => agent.id === assignment.workerAgentId);
                 const selectedWorkerId = selectedWorkerFor(assignment.podId);
                 const isSubmitting = submittingPods.has(assignment.podId);
                 if (!pod) return null;
@@ -237,7 +248,9 @@ export function WorkerAgentsPanel({
                         <div className="worker-assignment-title">{pod.name}</div>
                         <div className="worker-agent-meta">{pod.responsibility}</div>
                       </div>
-                      <span className="worker-status-badge">{STATUS_LABELS[assignment.status]}</span>
+                      <span className="worker-status-badge">
+                        {STATUS_LABELS[assignment.status]}
+                      </span>
                     </div>
 
                     {assignment.status === 'unassigned' && (
@@ -245,17 +258,21 @@ export function WorkerAgentsPanel({
                         <select
                           className="input"
                           value={selectedWorkerId}
-                          onChange={event => setSelectedWorkers(prev => ({
-                            ...prev,
-                            [assignment.podId]: event.target.value,
-                          }))}
+                          onChange={(event) =>
+                            setSelectedWorkers((prev) => ({
+                              ...prev,
+                              [assignment.podId]: event.target.value,
+                            }))
+                          }
                           disabled={enabledAgents.length === 0}
                         >
                           {enabledAgents.length === 0 ? (
                             <option value="">No enabled worker agents</option>
                           ) : (
-                            enabledAgents.map(agent => (
-                              <option key={agent.id} value={agent.id}>{agent.name}</option>
+                            enabledAgents.map((agent) => (
+                              <option key={agent.id} value={agent.id}>
+                                {agent.name}
+                              </option>
                             ))
                           )}
                         </select>
@@ -273,14 +290,19 @@ export function WorkerAgentsPanel({
                       <div className="worker-handoff">
                         <div className="worker-handoff-meta">
                           <span>Worker: {worker?.name ?? 'Unknown worker'}</span>
-                          {assignment.review?.summary && <span>Manager: {assignment.review.summary}</span>}
+                          {assignment.review?.summary && (
+                            <span>Manager: {assignment.review.summary}</span>
+                          )}
                         </div>
 
                         {assignment.handoffPrompt && (
                           <>
                             <div className="worker-copy-row">
                               <span className="label">Handoff Packet</span>
-                              <button className="btn btn-ghost" onClick={() => copyHandoff(assignment)}>
+                              <button
+                                className="btn btn-ghost"
+                                onClick={() => copyHandoff(assignment)}
+                              >
                                 {copiedPodId === assignment.podId ? 'Copied' : 'Copy'}
                               </button>
                             </div>
@@ -297,10 +319,14 @@ export function WorkerAgentsPanel({
                             <div className="worker-review-title">Manager Revisions</div>
                             {assignment.review.requiredRevisions.length > 0 ? (
                               assignment.review.requiredRevisions.map((revision, index) => (
-                                <div key={index} className="worker-review-item">{revision}</div>
+                                <div key={index} className="worker-review-item">
+                                  {revision}
+                                </div>
                               ))
                             ) : (
-                              <div className="worker-review-item">{assignment.review.managerGuidance}</div>
+                              <div className="worker-review-item">
+                                {assignment.review.managerGuidance}
+                              </div>
                             )}
                           </div>
                         )}
@@ -310,12 +336,19 @@ export function WorkerAgentsPanel({
                             <textarea
                               className="input worker-output-input"
                               placeholder="Paste the worker agent output for manager review"
-                              value={outputDrafts[assignment.podId] ?? assignment.submittedOutput ?? ''}
+                              value={
+                                outputDrafts[assignment.podId] ?? assignment.submittedOutput ?? ''
+                              }
                               maxLength={MAX_WORKER_OUTPUT_LENGTH}
-                              onChange={event => setOutputDrafts(prev => ({
-                                ...prev,
-                                [assignment.podId]: clampText(event.target.value, MAX_WORKER_OUTPUT_LENGTH),
-                              }))}
+                              onChange={(event) =>
+                                setOutputDrafts((prev) => ({
+                                  ...prev,
+                                  [assignment.podId]: clampText(
+                                    event.target.value,
+                                    MAX_WORKER_OUTPUT_LENGTH,
+                                  ),
+                                }))
+                              }
                               disabled={assignment.status === 'reviewing'}
                             />
                             <button
@@ -323,7 +356,9 @@ export function WorkerAgentsPanel({
                               onClick={() => submitOutput(assignment.podId)}
                               disabled={assignment.status === 'reviewing' || isSubmitting}
                             >
-                              {assignment.status === 'reviewing' || isSubmitting ? 'Reviewing' : 'Submit for Review'}
+                              {assignment.status === 'reviewing' || isSubmitting
+                                ? 'Reviewing'
+                                : 'Submit for Review'}
                             </button>
                           </>
                         )}

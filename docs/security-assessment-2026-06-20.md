@@ -1,5 +1,7 @@
 # Security Assessment - 2026-06-20
 
+> Remediation update: the findings below describe the original browser-only baseline. The easy-to-hard remediation added an authenticated server provider broker, tenant quotas, encrypted connector vault enrollment, durable security events, deployable response headers, transactional retries, terminal abort, fail-closed manager review, strict CI, and keyboard access. See `docs/production-readiness.md` for the current control inventory and remaining provisioned-infrastructure validation work.
+
 ## Executive result
 
 The reviewed browser application is materially safer after this pass and passed automated unit, build, dependency, and production-browser checks. It is suitable for demos and controlled non-regulated use with user-owned provider keys. It is **not yet a complete enterprise production system** because the current GitHub Pages architecture has no server-side identity, tenant boundary, secret vault, policy broker, durable queue, or append-only audit service.
@@ -16,17 +18,17 @@ No destructive testing targeted third-party systems. Provider/network behavior w
 
 ## Findings
 
-| Severity | Finding | Result |
-| --- | --- | --- |
-| High | Provider requests and stream reads could hang indefinitely; retry delays trusted unbounded `Retry-After` values. | Fixed with 60-second request/idle timeouts, abort-aware waits, and a 30-second retry cap. |
-| High | Provider streams could grow without bound and exhaust browser memory. | Fixed with a one-million-character response ceiling. |
-| High | Model-generated pod DAGs and verification assignments were trusted after JSON parsing. Malformed, cyclic, duplicate, or unknown dependencies could corrupt execution. | Fixed with strict runtime plan validation before state construction. |
-| High | A naive generic connector implementation would create an SSRF/local-network pivot and leak production credentials into the browser. | Prevented: public HTTPS policy, private/loopback blocking, no direct connector fetch, redacted persistence, and a mandatory server-broker boundary. |
-| Medium | Worker submissions could trigger overlapping manager reviews through rapid duplicate submission. | Fixed with a per-pod in-flight review guard. |
-| Medium | Bus protocol tags split across streamed chunks could be silently lost. | Fixed by parsing bounded accumulated output in live and demo execution. |
-| Medium | Greedy JSON extraction could capture unrelated trailing objects or malformed mixed output. | Fixed with balanced, string-aware object extraction and fenced-JSON preference. |
-| Medium | `frame-ancestors` was present in meta CSP even though browsers ignore that directive in meta tags. | Ineffective directive removed; response-header requirement documented. GitHub Pages remains unable to set the required repository-level header. |
-| Low | Provider and mission summary rows overflowed on mobile widths. | Fixed and verified at 390px. |
+| Severity | Finding                                                                                                                                                               | Result                                                                                                                                              |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| High     | Provider requests and stream reads could hang indefinitely; retry delays trusted unbounded `Retry-After` values.                                                      | Fixed with 60-second request/idle timeouts, abort-aware waits, and a 30-second retry cap.                                                           |
+| High     | Provider streams could grow without bound and exhaust browser memory.                                                                                                 | Fixed with a one-million-character response ceiling.                                                                                                |
+| High     | Model-generated pod DAGs and verification assignments were trusted after JSON parsing. Malformed, cyclic, duplicate, or unknown dependencies could corrupt execution. | Fixed with strict runtime plan validation before state construction.                                                                                |
+| High     | A naive generic connector implementation would create an SSRF/local-network pivot and leak production credentials into the browser.                                   | Prevented: public HTTPS policy, private/loopback blocking, no direct connector fetch, redacted persistence, and a mandatory server-broker boundary. |
+| Medium   | Worker submissions could trigger overlapping manager reviews through rapid duplicate submission.                                                                      | Fixed with a per-pod in-flight review guard.                                                                                                        |
+| Medium   | Bus protocol tags split across streamed chunks could be silently lost.                                                                                                | Fixed by parsing bounded accumulated output in live and demo execution.                                                                             |
+| Medium   | Greedy JSON extraction could capture unrelated trailing objects or malformed mixed output.                                                                            | Fixed with balanced, string-aware object extraction and fenced-JSON preference.                                                                     |
+| Medium   | `frame-ancestors` was present in meta CSP even though browsers ignore that directive in meta tags.                                                                    | Ineffective directive removed; response-header requirement documented. GitHub Pages remains unable to set the required repository-level header.     |
+| Low      | Provider and mission summary rows overflowed on mobile widths.                                                                                                        | Fixed and verified at 390px.                                                                                                                        |
 
 ## Residual enterprise risks
 

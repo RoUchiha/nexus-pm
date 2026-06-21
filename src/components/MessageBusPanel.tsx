@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { BusMessage } from '../types';
 import { BUS_TYPE_META } from '../lib/constants';
 
-interface Props { messages: BusMessage[]; }
+interface Props {
+  messages: BusMessage[];
+}
 
 export function MessageBusPanel({ messages }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -34,14 +36,10 @@ export function MessageBusPanel({ messages }: Props) {
         </span>
       </div>
       <div className="bus-list" ref={listRef}>
-        {messages.map(msg => {
+        {messages.map((msg) => {
           const meta = BUS_TYPE_META[msg.type];
           return (
-            <div
-              key={msg.id}
-              className="bus-message"
-              style={{ borderColor: `${meta.color}22` }}
-            >
+            <div key={msg.id} className="bus-message" style={{ borderColor: `${meta.color}22` }}>
               <span className="bus-icon">{meta.icon}</span>
               <span className="bus-from">{msg.from}</span>
               {msg.to !== 'ALL' && (
@@ -51,7 +49,9 @@ export function MessageBusPanel({ messages }: Props) {
                 </>
               )}
               {msg.to === 'ALL' && (
-                <span className="bus-to" style={{ color: 'var(--dim)' }}>→ ALL</span>
+                <span className="bus-to" style={{ color: 'var(--dim)' }}>
+                  → ALL
+                </span>
               )}
               <span className="bus-content" style={{ color: meta.color }}>
                 {msg.content}
@@ -67,5 +67,5 @@ export function MessageBusPanel({ messages }: Props) {
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
-  return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
 }

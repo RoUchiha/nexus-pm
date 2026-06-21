@@ -26,24 +26,43 @@ import { resolveProviders } from './lib/providers';
 import type { ProviderConfig, WorkerAgentConnection, WorkerMode } from './types';
 
 export function App() {
-  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>(() => loadProviderConfigs());
-  const [workerAgents, setWorkerAgents] = useState<WorkerAgentConnection[]>(() => loadWorkerAgents());
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>(() =>
+    loadProviderConfigs(),
+  );
+  const [workerAgents, setWorkerAgents] = useState<WorkerAgentConnection[]>(() =>
+    loadWorkerAgents(),
+  );
   const [workerMode, setWorkerMode] = useState<WorkerMode>(() => loadWorkerMode());
   const [elapsed, setElapsed] = useState<number | null>(null);
   const [state, actions] = useNexus();
   const [connectors, connectorActions] = useConnectors();
 
   const {
-    phase, mission, spec, discovery, pods, bus,
-    verification, coordination, synthesis, workerAssignments, activityLog, error,
+    phase,
+    mission,
+    spec,
+    discovery,
+    pods,
+    bus,
+    verification,
+    coordination,
+    synthesis,
+    workerAssignments,
+    activityLog,
+    error,
   } = state;
 
-  const isRunning = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(phase);
+  const isRunning = ['spec_drafting', 'deploying', 'executing', 'verifying', 'synthesis'].includes(
+    phase,
+  );
 
   // Elapsed timer
   useEffect(() => {
-    if (!state.startTime) { setElapsed(null); return; }
-    if (phase === 'complete' || phase === 'error') {
+    if (!state.startTime) {
+      setElapsed(null);
+      return;
+    }
+    if (phase === 'complete' || phase === 'aborted' || phase === 'error') {
       setElapsed(Date.now() - state.startTime);
       return;
     }
@@ -53,9 +72,16 @@ export function App() {
     return () => clearInterval(id);
   }, [state.startTime, phase]);
 
-  const handleMission = useCallback((m: string) => {
-    actions.runMission(providerConfigs, m, { mode: workerMode, agents: workerAgents, connectors });
-  }, [providerConfigs, workerMode, workerAgents, connectors, actions]);
+  const handleMission = useCallback(
+    (m: string) => {
+      actions.runMission(providerConfigs, m, {
+        mode: workerMode,
+        agents: workerAgents,
+        connectors,
+      });
+    },
+    [providerConfigs, workerMode, workerAgents, connectors, actions],
+  );
 
   const handleWorkerAgentsChange = useCallback((next: WorkerAgentConnection[]) => {
     setWorkerAgents(next);
@@ -69,30 +95,31 @@ export function App() {
 
   // Build VC status map from verification results
   const vcStatuses = verification
-    ? Object.fromEntries(verification.vcResults.map(r => [r.id, r.status]))
+    ? Object.fromEntries(verification.vcResults.map((r) => [r.id, r.status]))
     : undefined;
 
-  const running = pods.filter(p => p.status === 'running').length;
-  const done    = pods.filter(p => p.status === 'completed').length;
+  const running = pods.filter((p) => p.status === 'running').length;
+  const done = pods.filter((p) => p.status === 'completed').length;
   const hasRunnableConfig =
     resolveProviders(providerConfigs, 'manager').length > 0 &&
     (workerMode === 'company_workers'
-      ? workerAgents.some(agent => agent.enabled)
+      ? workerAgents.some((agent) => agent.enabled)
       : resolveProviders(providerConfigs, 'pod').length > 0);
 
   return (
     <div className="app">
-      <Header
-        phase={phase}
-        elapsed={elapsed}
-        onAbort={actions.abort}
-        onReset={actions.reset}
-      />
+      <Header phase={phase} elapsed={elapsed} onAbort={actions.abort} onReset={actions.reset} />
 
       <ProvidersPanel configs={providerConfigs} onChange={setProviderConfigs} />
-      <ConnectionsPanel connectors={connectors} actions={connectorActions} locked={phase !== 'idle'} />
+      <ConnectionsPanel
+        connectors={connectors}
+        actions={connectorActions}
+        locked={phase !== 'idle'}
+      />
       <WorkerAgentsPanel
-        agents={phase === 'idle' || state.workerAgents.length === 0 ? workerAgents : state.workerAgents}
+        agents={
+          phase === 'idle' || state.workerAgents.length === 0 ? workerAgents : state.workerAgents
+        }
         mode={phase === 'idle' ? workerMode : state.workerMode}
         phase={phase}
         pods={pods}
@@ -104,7 +131,6 @@ export function App() {
       />
 
       <main className="main">
-
         {/* ── Idle: mission input ── */}
         {phase === 'idle' && (
           <MissionInput
@@ -119,12 +145,18 @@ export function App() {
         {phase !== 'idle' && (
           <>
             <PhaseIndicator phase={phase} />
-            <div style={{
-              fontSize: 13, color: 'var(--muted)', marginBottom: 16,
-              padding: '10px 14px', background: 'var(--surface)',
-              borderRadius: 6, border: '1px solid var(--border)',
-              lineHeight: 1.5,
-            }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--muted)',
+                marginBottom: 16,
+                padding: '10px 14px',
+                background: 'var(--surface)',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                lineHeight: 1.5,
+              }}
+            >
               <span style={{ color: 'var(--dim)', fontSize: 11, marginRight: 8 }}>MISSION</span>
               {mission}
             </div>
@@ -151,7 +183,11 @@ export function App() {
             <div>
               <div className="error-title">Mission Failed</div>
               <div className="error-msg">{error}</div>
-              <button className="btn btn-ghost" style={{ marginTop: 10, fontSize: 12 }} onClick={actions.reset}>
+              <button
+                className="btn btn-ghost"
+                style={{ marginTop: 10, fontSize: 12 }}
+                onClick={actions.reset}
+              >
                 Try Again
               </button>
             </div>
@@ -159,9 +195,7 @@ export function App() {
         )}
 
         {/* ── Spec panel (shown as soon as spec is ready) ── */}
-        {spec && (
-          <SpecPanel spec={spec} vcStatuses={vcStatuses} />
-        )}
+        {spec && <SpecPanel spec={spec} vcStatuses={vcStatuses} />}
 
         {/* ── Execution plan ── */}
         {discovery && <DiscoveryPanel discovery={discovery} />}
@@ -177,7 +211,7 @@ export function App() {
               </span>
             </div>
             <div className="pods-grid">
-              {pods.map(pod => (
+              {pods.map((pod) => (
                 <ErrorBoundary key={pod.id}>
                   <PodCard pod={pod} spec={spec} vcStatuses={vcStatuses} />
                 </ErrorBoundary>
@@ -195,7 +229,10 @@ export function App() {
         {/* ── Verifying spinner ── */}
         {phase === 'verifying' && !verification && (
           <div className="verifying-indicator">
-            <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'var(--purple)' }} />
+            <span
+              className="spinner"
+              style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'var(--purple)' }}
+            />
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--purple)' }}>
                 Adversarial Spec Verification
@@ -208,9 +245,7 @@ export function App() {
         )}
 
         {/* ── Verification results ── */}
-        {verification && spec && (
-          <VerificationPanel verification={verification} spec={spec} />
-        )}
+        {verification && spec && <VerificationPanel verification={verification} spec={spec} />}
 
         {/* ── Final synthesis ── */}
         {synthesis && (

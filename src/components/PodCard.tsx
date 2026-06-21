@@ -15,7 +15,9 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
   const isActive = isRunning || pod.status === 'reviewing';
   const meta = STATUS_META[pod.status];
 
-  useEffect(() => { if (isActive) setExpanded(true); }, [isActive]);
+  useEffect(() => {
+    if (isActive) setExpanded(true);
+  }, [isActive]);
 
   useEffect(() => {
     if (expanded && outputRef.current) {
@@ -23,9 +25,7 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
     }
   }, [pod.output, expanded]);
 
-  const elapsed = pod.startTime
-    ? ((pod.endTime ?? Date.now()) - pod.startTime) / 1000
-    : null;
+  const elapsed = pod.startTime ? ((pod.endTime ?? Date.now()) - pod.startTime) / 1000 : null;
 
   const cleanOutput = pod.output
     .replace(/\[BROADCAST\]:[^\n]*/gi, '')
@@ -38,12 +38,25 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
     .trim();
 
   // VC assignment badges from spec
-  const assignedVCs = spec?.verificationCriteria.filter(v => pod.vcIds.includes(v.id)) ?? [];
+  const assignedVCs = spec?.verificationCriteria.filter((v) => pod.vcIds.includes(v.id)) ?? [];
 
   return (
     <div className={`pod-card ${pod.status}`}>
       {/* Header */}
-      <div className="pod-card-header" onClick={() => setExpanded(e => !e)}>
+      <div
+        className="pod-card-header"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-controls={`pod-details-${pod.id}`}
+        onClick={() => setExpanded((e) => !e)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setExpanded((value) => !value);
+          }
+        }}
+      >
         <div
           className={`pod-status-indicator ${isActive || pod.status === 'waiting' ? 'pulse' : ''}`}
           style={{ background: meta.color }}
@@ -64,20 +77,24 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
               {pod.usedProvider}
             </span>
           )}
-          {elapsed !== null && (
-            <span className="pod-timing">{elapsed.toFixed(1)}s</span>
-          )}
+          {elapsed !== null && <span className="pod-timing">{elapsed.toFixed(1)}s</span>}
           <span style={{ color: 'var(--dim)', fontSize: 11 }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
 
       {/* VC assignment bar */}
       {assignedVCs.length > 0 && (
-        <div style={{
-          display: 'flex', gap: 5, padding: '6px 14px', flexWrap: 'wrap',
-          borderBottom: '1px solid var(--border)', background: 'rgba(0,0,0,0.15)',
-        }}>
-          {assignedVCs.map(vc => {
+        <div
+          style={{
+            display: 'flex',
+            gap: 5,
+            padding: '6px 14px',
+            flexWrap: 'wrap',
+            borderBottom: '1px solid var(--border)',
+            background: 'rgba(0,0,0,0.15)',
+          }}
+        >
+          {assignedVCs.map((vc) => {
             const status = vcStatuses?.[vc.id] ?? 'pending';
             const statusMeta = VC_STATUS_META[status];
             return (
@@ -85,8 +102,11 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
                 key={vc.id}
                 title={vc.description}
                 style={{
-                  fontSize: 10, padding: '1px 6px', borderRadius: 3,
-                  fontFamily: 'var(--font-mono)', fontWeight: 700,
+                  fontSize: 10,
+                  padding: '1px 6px',
+                  borderRadius: 3,
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
                   color: statusMeta.color,
                   border: `1px solid ${statusMeta.color}44`,
                   background: `${statusMeta.color}11`,
@@ -100,23 +120,37 @@ export function PodCard({ pod, spec, vcStatuses }: Props) {
       )}
 
       {/* Expandable body */}
-      <div className={`pod-card-body ${expanded ? 'expanded' : ''}`} ref={outputRef}>
+      <div
+        className={`pod-card-body ${expanded ? 'expanded' : ''}`}
+        id={`pod-details-${pod.id}`}
+        ref={outputRef}
+      >
         <div className="pod-deliverable">→ {pod.deliverable}</div>
         {pod.responsibility && (
-          <div style={{ fontSize: 10, color: 'var(--dim)', padding: '0 14px 6px', fontStyle: 'italic' }}>
+          <div
+            style={{
+              fontSize: 10,
+              color: 'var(--dim)',
+              padding: '0 14px 6px',
+              fontStyle: 'italic',
+            }}
+          >
             § {pod.responsibility}
           </div>
         )}
         {cleanOutput ? (
-          <div className={`pod-output${isRunning ? ' pod-output-cursor' : ''}`}>
-            {cleanOutput}
-          </div>
+          <div className={`pod-output${isRunning ? ' pod-output-cursor' : ''}`}>{cleanOutput}</div>
         ) : (
           <div className="pod-output" style={{ color: 'var(--dim)', fontStyle: 'italic' }}>
-            {pod.status === 'waiting' ? 'Waiting for dependencies…' :
-             pod.status === 'queued'  ? 'Queued…' :
-             pod.status === 'reviewing' ? 'Manager reviewing worker output…' :
-             pod.status === 'running' ? 'Starting…' : 'No output.'}
+            {pod.status === 'waiting'
+              ? 'Waiting for dependencies…'
+              : pod.status === 'queued'
+                ? 'Queued…'
+                : pod.status === 'reviewing'
+                  ? 'Manager reviewing worker output…'
+                  : pod.status === 'running'
+                    ? 'Starting…'
+                    : 'No output.'}
           </div>
         )}
       </div>
