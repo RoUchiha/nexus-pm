@@ -5,7 +5,7 @@
 **https://github.com/RoUchiha/nexus-pm**  
 Local: `C:\Users\Roshaan\Documents\nexus-pm`  
 Dev server: `npm install && npm run dev` → http://localhost:5173
-**Live demo: https://rouchiha.github.io/nexus-pm/** (GitHub Pages, auto-deploys on push to main)
+**Live demo: https://nexus-pm-six.vercel.app/** (Vercel production deployment with server functions and hardened response headers)
 
 ---
 
@@ -81,7 +81,7 @@ src/
     MissionInput.tsx      ← textarea + example missions + ⌘+Enter submit + ▶ Watch Demo button
     ErrorBoundary.tsx     ← wraps each PodCard
   .github/
-    workflows/deploy.yml  ← GitHub Actions: build + deploy to GitHub Pages on push to main
+    workflows/deploy.yml  ← GitHub Actions: security and quality CI on push to main
 ```
 
 ---
@@ -284,17 +284,17 @@ The built-in demo replays a scripted mission without any API keys:
 - `.env` is gitignored; optional `VITE_ANTHROPIC_API_KEY` for pre-fill only
 - All input through `sanitizeInput()` + `validateMission()` before API
 - `truncateForContext()` caps system prompts at 6000 chars, messages at 4000
-- CSP in `index.html` whitelists: anthropic, groq, openai, googleapis, mistral, together, localhost:11434, 127.0.0.1:11434
+- CSP permits only same-origin broker traffic, Clerk, and local Ollama loopback access
 - No eval(), no dynamic code
 
 ---
 
-## Deployment (GitHub Pages)
+## Deployment
 
-- `.github/workflows/deploy.yml` — triggers on push to `main`/`master`, builds with `GITHUB_ACTIONS=true`, deploys `dist/` to Pages
-- `vite.config.ts` — uses `base: '/nexus-pm/'` only when `GITHUB_ACTIONS=true`, so local dev stays at `/`
-- Enable at: repo Settings → Pages → Source → GitHub Actions
-- Live URL: **https://rouchiha.github.io/nexus-pm/**
+- `.github/workflows/deploy.yml` — runs secret scanning, linting, formatting, client/server type checks, tests, audit, and production build on pushes to `main`/`master`
+- `vercel.json` defines production security headers and Vercel Functions
+- Source maps are disabled by default
+- Canonical live URL: **https://nexus-pm-six.vercel.app/**
 
 ---
 

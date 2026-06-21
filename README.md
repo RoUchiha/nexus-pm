@@ -2,13 +2,13 @@
 
 Autonomous and company-assisted multi-agent orchestration built on **Spec-Driven Development (SDD)**. Give NEXUS a mission — it writes a formal spec, spins up specialized AI pods or connected worker agents, verifies outputs against the spec, and synthesizes an executive report.
 
-**[Live Demo →](https://rouchiha.github.io/nexus-pm/)** — no API key needed, click **▶ Watch Demo**
+**[Live Demo →](https://nexus-pm-six.vercel.app/)** — no API key needed, click **▶ Watch Demo**
 
 ---
 
 ## Try it now
 
-**[https://rouchiha.github.io/nexus-pm/](https://rouchiha.github.io/nexus-pm/)**
+**[https://nexus-pm-six.vercel.app/](https://nexus-pm-six.vercel.app/)**
 
 Hit **▶ Watch Demo** on the landing page to watch a full scripted mission run through all 5 phases — no sign-up, no API key. The demo replays a real-time collaborative dashboard architecture mission and showcases every feature: live pod streaming, inter-agent bus messages, manager directives between waves, adversarial verification, and the activity feed log.
 

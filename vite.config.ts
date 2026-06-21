@@ -1,12 +1,11 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const isGHPages = process.env.GITHUB_ACTIONS === 'true';
 const enableSourceMaps = process.env.VITE_ENABLE_SOURCEMAPS === 'true';
 
 export default defineConfig({
   plugins: [react()],
-  base: isGHPages ? '/nexus-pm/' : '/',
+  base: '/',
   server: {
     host: '127.0.0.1',
     port: 5173,
