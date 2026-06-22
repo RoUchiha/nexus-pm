@@ -325,7 +325,7 @@ export interface NexusActions {
     mission: string,
     workerOptions?: WorkerRunOptions,
   ) => Promise<void>;
-  runDemo: () => Promise<void>;
+  runDemo: (mission?: string) => Promise<void>;
   claimWorkerPod: (podId: string, workerAgentId: string) => void;
   submitWorkerPodOutput: (podId: string, output: string) => Promise<void>;
   abort: () => void;
@@ -1220,21 +1220,24 @@ export function useNexus(): [NexusState, NexusActions] {
     [executePod, executeWorkerPod, rejectWaitingWorkerPods, addLog],
   );
 
-  const runDemo = useCallback(async () => {
-    abortRef.current?.abort();
-    rejectWaitingWorkerPods(new Error('Demo started'));
-    const ac = new AbortController();
-    abortRef.current = ac;
-    podOutputsRef.current.clear();
-    busMessagesRef.current = [];
-    busDedupeRef.current = new Set();
-    managerDirectivesRef.current = new Map();
-    workerRunContextRef.current = null;
-    dispatch({ type: 'RESET' });
-    // Small delay to let RESET settle before re-starting
-    await new Promise((r) => setTimeout(r, 50));
-    await runDemoReplay(dispatch, ac.signal);
-  }, [rejectWaitingWorkerPods]);
+  const runDemo = useCallback(
+    async (mission?: string) => {
+      abortRef.current?.abort();
+      rejectWaitingWorkerPods(new Error('Demo started'));
+      const ac = new AbortController();
+      abortRef.current = ac;
+      podOutputsRef.current.clear();
+      busMessagesRef.current = [];
+      busDedupeRef.current = new Set();
+      managerDirectivesRef.current = new Map();
+      workerRunContextRef.current = null;
+      dispatch({ type: 'RESET' });
+      // Small delay to let RESET settle before re-starting
+      await new Promise((r) => setTimeout(r, 50));
+      await runDemoReplay(dispatch, ac.signal, mission);
+    },
+    [rejectWaitingWorkerPods],
+  );
 
   return [state, { runMission, runDemo, claimWorkerPod, submitWorkerPodOutput, abort, reset }];
 }

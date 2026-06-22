@@ -4,12 +4,19 @@ import type { ConnectorConfig, ConnectorIssue, ConnectorStatus } from '../types'
 type TokenProvider = () => Promise<string | null | undefined>;
 
 let tokenProvider: TokenProvider | null = null;
+let publicDemoMode = false;
+
+export function setPublicDemoMode(enabled: boolean): void {
+  publicDemoMode = enabled;
+  if (enabled) tokenProvider = null;
+}
 
 export function setBrokerTokenProvider(provider: TokenProvider | null): void {
   tokenProvider = provider;
 }
 
 export function isBrokerConfigured(): boolean {
+  if (publicDemoMode) return false;
   return (
     import.meta.env.VITE_AUTH0_ENABLED === 'true' ||
     Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
@@ -17,6 +24,7 @@ export function isBrokerConfigured(): boolean {
 }
 
 async function authorizationHeaders(): Promise<Record<string, string>> {
+  if (publicDemoMode) throw new Error('Managed providers are disabled in the public demo.');
   if (!tokenProvider) throw new Error('Sign in before using managed providers.');
   const token = await tokenProvider();
   if (token === null) throw new Error('Sign in before using managed providers.');

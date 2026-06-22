@@ -1,9 +1,36 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { invokeBroker, setPublicDemoMode } from '../src/lib/broker';
 import {
   normalizeExternalEndpoint,
   normalizeLocalProviderBaseUrl,
   sanitizeInput,
 } from '../src/lib/security';
+
+afterEach(() => {
+  setPublicDemoMode(false);
+  vi.restoreAllMocks();
+});
+
+describe('public demo isolation', () => {
+  it('fails locally without making a managed provider request', async () => {
+    setPublicDemoMode(true);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const onError = vi.fn();
+
+    await invokeBroker(
+      'openai',
+      'dummy-model',
+      'system',
+      [{ role: 'user', content: 'dummy mission' }],
+      { onChunk: vi.fn(), onComplete: vi.fn(), onError },
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Managed providers are disabled in the public demo.' }),
+    );
+  });
+});
 
 describe('endpoint policy', () => {
   it.each([

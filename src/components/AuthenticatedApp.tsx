@@ -90,6 +90,9 @@ function Auth0App() {
           >
             Sign in securely
           </button>
+          <a className="btn btn-ghost" href="/?demo=1">
+            Try credential-free demo
+          </a>
         </div>
       </main>
     );

@@ -43,7 +43,12 @@ function nextBusId(): string {
   return `demo_msg_${Date.now()}_${++_busCounter}`;
 }
 
-export async function runDemoReplay(dispatch: DemoDispatch, signal: AbortSignal): Promise<void> {
+export async function runDemoReplay(
+  dispatch: DemoDispatch,
+  signal: AbortSignal,
+  missionOverride?: string,
+): Promise<void> {
+  const mission = missionOverride?.trim() || DEMO_MISSION;
   const busDedupeRef = new Set<string>();
   const busMessages: BusMessage[] = [];
   const streamedOutputs = new Map<string, string>();
@@ -66,13 +71,13 @@ export async function runDemoReplay(dispatch: DemoDispatch, signal: AbortSignal)
   }
 
   // ── Phase 1: Spec drafting ─────────────────────────────────────────────────
-  dispatch({ type: 'SET_MISSION', mission: DEMO_MISSION });
+  dispatch({ type: 'SET_MISSION', mission });
   dispatch({ type: 'SET_PHASE', phase: 'spec_drafting' });
 
   await sleep(2400);
   if (signal.aborted) return;
 
-  dispatch({ type: 'SET_SPEC', spec: DEMO_SPEC });
+  dispatch({ type: 'SET_SPEC', spec: { ...DEMO_SPEC, mission } });
   dispatch({ type: 'SET_DISCOVERY', discovery: DEMO_DISCOVERY });
 
   dispatch({
@@ -82,7 +87,7 @@ export async function runDemoReplay(dispatch: DemoDispatch, signal: AbortSignal)
       'NEXUS Manager',
       'spec_drafting',
       'spec_drafted',
-      `Full mission: ${DEMO_MISSION}`,
+      `Full mission: ${mission}`,
       `Analyzed mission and drafted spec with ${DEMO_SPEC.verificationCriteria.length} verification criteria across ${DEMO_DISCOVERY.pods.length} pods. Complexity: ${DEMO_DISCOVERY.complexity}. Estimated duration: ${DEMO_DISCOVERY.estimatedDuration}.`,
       `Outcomes: ${DEMO_SPEC.outcomes.slice(0, 3).join('; ')}…`,
     ),
@@ -355,7 +360,7 @@ export async function runDemoReplay(dispatch: DemoDispatch, signal: AbortSignal)
       'NEXUS Manager',
       'synthesis',
       'synthesis_complete',
-      `Full mission: ${DEMO_MISSION}`,
+      `Full mission: ${mission}`,
       `Synthesized final report. 9 deliverables, 8 roadmap steps, 87.5% spec compliance. One coordination correction issued. One VC gap (VC-006) with clear remediation path.`,
       'Next: apply broadcastToOrg correction, extend Zod to auth/project routes, run integration test suite',
     ),

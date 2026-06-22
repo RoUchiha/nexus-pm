@@ -27,9 +27,10 @@ import type { ProviderConfig, WorkerAgentConnection, WorkerMode } from './types'
 
 interface Props {
   sessionControl?: ReactNode;
+  publicDemo?: boolean;
 }
 
-export function App({ sessionControl }: Props = {}) {
+export function App({ sessionControl, publicDemo = false }: Props = {}) {
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>(() =>
     loadProviderConfigs(),
   );
@@ -78,13 +79,17 @@ export function App({ sessionControl }: Props = {}) {
 
   const handleMission = useCallback(
     (m: string) => {
+      if (publicDemo) {
+        void actions.runDemo(m);
+        return;
+      }
       actions.runMission(providerConfigs, m, {
         mode: workerMode,
         agents: workerAgents,
         connectors,
       });
     },
-    [providerConfigs, workerMode, workerAgents, connectors, actions],
+    [providerConfigs, workerMode, workerAgents, connectors, actions, publicDemo],
   );
 
   const handleWorkerAgentsChange = useCallback((next: WorkerAgentConnection[]) => {
@@ -120,11 +125,22 @@ export function App({ sessionControl }: Props = {}) {
         sessionControl={sessionControl}
       />
 
+      {publicDemo && (
+        <div className="public-demo-banner" role="status">
+          <strong>Public sandbox</strong>
+          <span>
+            Credential-free simulation. No account, provider key, connector secret, or server-side
+            action is used.
+          </span>
+        </div>
+      )}
+
       <ProvidersPanel configs={providerConfigs} onChange={setProviderConfigs} />
       <ConnectionsPanel
         connectors={connectors}
         actions={connectorActions}
         locked={phase !== 'idle'}
+        publicDemo={publicDemo}
       />
       <WorkerAgentsPanel
         agents={
@@ -147,7 +163,8 @@ export function App({ sessionControl }: Props = {}) {
             onSubmit={handleMission}
             onDemo={actions.runDemo}
             disabled={isRunning}
-            hasApiKey={hasRunnableConfig}
+            hasApiKey={publicDemo || hasRunnableConfig}
+            publicDemo={publicDemo}
           />
         )}
 

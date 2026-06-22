@@ -12,6 +12,7 @@ interface Props {
   connectors: ConnectorConfig[];
   actions: ConnectorActions;
   locked: boolean;
+  publicDemo?: boolean;
 }
 
 const STATUS_LABEL: Record<ConnectorConfig['status'], string> = {
@@ -28,7 +29,7 @@ function credentialValue(connector: ConnectorConfig): string {
   return field ? (connector.credentials[field] ?? '') : '';
 }
 
-export function ConnectionsPanel({ connectors, actions, locked }: Props) {
+export function ConnectionsPanel({ connectors, actions, locked, publicDemo = false }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [definitionId, setDefinitionId] = useState(CONNECTOR_DEFINITIONS[0].id);
   const [routeInput, setRouteInput] = useState('repo-read, api-read, inference');
@@ -48,6 +49,27 @@ export function ConnectionsPanel({ connectors, actions, locked }: Props) {
   const updateAuth = (connector: ConnectorConfig, authType: ConnectorAuthType) => {
     actions.update(connector.id, { authType, credentials: {}, approved: false, status: 'draft' });
   };
+
+  if (publicDemo) {
+    return (
+      <section className="connections-panel public-demo-connections">
+        <div className="connections-header">
+          <span>
+            <span className="section-title">Connector Agent</span>
+            <span className="connections-sub">Simulation boundary active</span>
+          </span>
+          <span className="connector-status ready">Credential-free</span>
+        </div>
+        <div className="connector-agent-banner">
+          <strong>External connections are disabled</strong>
+          <span>
+            The public sandbox never requests, stores, or sends repository, database, API, agent, or
+            model credentials.
+          </span>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="connections-panel">

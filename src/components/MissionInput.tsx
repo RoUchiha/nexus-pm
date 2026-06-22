@@ -7,9 +7,10 @@ interface Props {
   onDemo?: () => void;
   disabled: boolean;
   hasApiKey: boolean;
+  publicDemo?: boolean;
 }
 
-export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
+export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey, publicDemo = false }: Props) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
 
@@ -89,16 +90,20 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
               Running…
             </>
           ) : (
-            <>⬡ Launch Mission</>
+            <>{publicDemo ? '▶ Run Sandbox Mission' : '⬡ Launch Mission'}</>
           )}
         </button>
       </div>
 
-      {!hasApiKey && (
+      {publicDemo ? (
+        <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 6 }}>
+          Simulation only — your mission text stays in this browser and no credentials are needed.
+        </div>
+      ) : !hasApiKey ? (
         <div style={{ fontSize: 11, color: 'var(--yellow)', marginTop: 6 }}>
           ⚠ Configure a manager-capable provider, or connect worker agents for worker routing.
         </div>
-      )}
+      ) : null}
 
       <div
         style={{
@@ -116,7 +121,7 @@ export function MissionInput({ onSubmit, onDemo, disabled, hasApiKey }: Props) {
             disabled={disabled}
             style={{ fontSize: 11, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 5 }}
           >
-            <span style={{ fontSize: 13 }}>▶</span> Watch Demo
+            <span style={{ fontSize: 13 }}>▶</span> {publicDemo ? 'Replay Example' : 'Watch Demo'}
           </button>
         )}
       </div>
