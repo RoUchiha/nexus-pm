@@ -3,6 +3,7 @@ import llmHandler from '../api/llm';
 import securityEventsHandler from '../api/security-events';
 import { validateBrokerRequest } from '../api/_lib/providers';
 import { requirePrincipal } from '../api/_lib/auth';
+import { createSessionCookie } from '../api/_lib/session';
 import { decryptCredential, encryptCredential } from '../api/_lib/vault';
 import type { VercelRequest, VercelResponse } from '../api/_lib/http';
 
@@ -79,6 +80,33 @@ describe('server control plane', () => {
     } finally {
       if (previousDomain === undefined) delete process.env.AUTH0_DOMAIN;
       else process.env.AUTH0_DOMAIN = previousDomain;
+    }
+  });
+
+  it('accepts encrypted Auth0 sessions and rejects tampered cookies', async () => {
+    const previousDomain = process.env.AUTH0_DOMAIN;
+    const previousSecret = process.env.AUTH0_SECRET;
+    process.env.AUTH0_DOMAIN = 'tenant.us.auth0.com';
+    process.env.AUTH0_SECRET = 'test-session-secret-with-at-least-32-characters';
+    try {
+      const setCookie = createSessionCookie({
+        sub: 'auth0|session-user',
+        organizationId: 'org-1',
+        expiresAt: Date.now() + 60_000,
+      });
+      const cookie = setCookie.split(';')[0];
+      await expect(requirePrincipal({ method: 'POST', headers: { cookie } })).resolves.toEqual({
+        userId: 'auth0|session-user',
+        tenantId: 'org-1',
+      });
+      await expect(
+        requirePrincipal({ method: 'POST', headers: { cookie: `${cookie}x` } }),
+      ).rejects.toMatchObject({ status: 401 });
+    } finally {
+      if (previousDomain === undefined) delete process.env.AUTH0_DOMAIN;
+      else process.env.AUTH0_DOMAIN = previousDomain;
+      if (previousSecret === undefined) delete process.env.AUTH0_SECRET;
+      else process.env.AUTH0_SECRET = previousSecret;
     }
   });
 

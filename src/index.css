@@ -55,6 +55,16 @@
   color: var(--muted);
 }
 
+.auth-error {
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
 html,
 body,
 #root {

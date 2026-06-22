@@ -1,7 +1,7 @@
 import type { ApiMessage, StreamCallbacks } from './api';
 import type { ConnectorConfig, ConnectorIssue, ConnectorStatus } from '../types';
 
-type TokenProvider = () => Promise<string | null>;
+type TokenProvider = () => Promise<string | null | undefined>;
 
 let tokenProvider: TokenProvider | null = null;
 
@@ -10,13 +10,17 @@ export function setBrokerTokenProvider(provider: TokenProvider | null): void {
 }
 
 export function isBrokerConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+  return (
+    import.meta.env.VITE_AUTH0_ENABLED === 'true' ||
+    Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY)
+  );
 }
 
 async function authorizationHeaders(): Promise<Record<string, string>> {
-  const token = await tokenProvider?.();
-  if (!token) throw new Error('Sign in before using managed providers.');
-  return { Authorization: `Bearer ${token}` };
+  if (!tokenProvider) throw new Error('Sign in before using managed providers.');
+  const token = await tokenProvider();
+  if (token === null) throw new Error('Sign in before using managed providers.');
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function invokeBroker(

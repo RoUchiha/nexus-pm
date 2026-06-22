@@ -1,6 +1,5 @@
 import { SignIn, useAuth } from '@clerk/react';
-import { useAuth0 } from '@auth0/auth0-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { App } from '../App';
 import { setBrokerTokenProvider } from '../lib/broker';
 
@@ -13,29 +12,69 @@ export function AuthenticatedApp({ provider }: Props) {
 }
 
 function Auth0App() {
-  const { getAccessTokenSilently, isAuthenticated, isLoading, loginWithRedirect, logout, user } =
-    useAuth0();
+  const [state, setState] = useState<
+    | { status: 'loading' }
+    | { status: 'signed-out'; error?: string }
+    | { status: 'signed-in'; user: { name?: string; email?: string } }
+  >({ status: 'loading' });
 
   useEffect(() => {
-    setBrokerTokenProvider(async () => {
-      try {
-        return await getAccessTokenSilently();
-      } catch {
-        return null;
-      }
-    });
-    return () => setBrokerTokenProvider(null);
-  }, [getAccessTokenSilently]);
+    let active = true;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const oauthState = params.get('state');
+    if (code && oauthState) {
+      window.location.replace(
+        `/api/auth/callback?${new URLSearchParams({ code, state: oauthState }).toString()}`,
+      );
+      return () => {
+        active = false;
+      };
+    }
+    const error =
+      params.get('auth_error') ??
+      params.get('error_description') ??
+      params.get('error') ??
+      undefined;
+    fetch('/api/auth/session', { credentials: 'same-origin' })
+      .then(async (response) => {
+        const body = (await response.json()) as {
+          authenticated?: boolean;
+          user?: { name?: string; email?: string };
+        };
+        if (!active) return;
+        if (response.ok && body.authenticated && body.user) {
+          setBrokerTokenProvider(async () => undefined);
+          setState({ status: 'signed-in', user: body.user });
+        } else {
+          setBrokerTokenProvider(null);
+          setState({ status: 'signed-out', error });
+        }
+      })
+      .catch(() => {
+        if (active) setState({ status: 'signed-out', error: 'Session check failed.' });
+      });
+    return () => {
+      active = false;
+      setBrokerTokenProvider(null);
+    };
+  }, []);
 
-  if (isLoading) return <main className="auth-shell">Loading secure workspace...</main>;
-  if (!isAuthenticated) {
+  if (state.status === 'loading') {
+    return <main className="auth-shell">Loading secure workspace...</main>;
+  }
+  if (state.status === 'signed-out') {
     return (
       <main className="auth-shell">
         <div className="auth-card">
           <span className="header-logo">⬡</span>
           <h1>NEXUS</h1>
           <p>Sign in to access the managed agent control plane.</p>
-          <button className="btn btn-primary" onClick={() => void loginWithRedirect()}>
+          {state.error && <div className="auth-error">Sign-in failed: {state.error}</div>}
+          <button
+            className="btn btn-primary"
+            onClick={() => window.location.assign('/api/auth/login')}
+          >
             Sign in securely
           </button>
         </div>
@@ -48,8 +87,8 @@ function Auth0App() {
       sessionControl={
         <button
           className="btn btn-ghost"
-          title={user?.email ?? user?.name ?? 'Signed in'}
-          onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+          title={state.user.email ?? state.user.name ?? 'Signed in'}
+          onClick={() => window.location.assign('/api/auth/logout')}
         >
           Sign out
         </button>

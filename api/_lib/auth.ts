@@ -1,5 +1,6 @@
 import { verifyToken } from '@clerk/backend';
 import { HttpError, requestHeader, type VercelRequest } from './http.js';
+import { readSession } from './session.js';
 
 export interface Principal {
   userId: string;
@@ -7,6 +8,16 @@ export interface Principal {
 }
 
 export async function requirePrincipal(request: VercelRequest): Promise<Principal> {
+  if (process.env.AUTH0_DOMAIN) {
+    const session = readSession(request);
+    if (session) {
+      return {
+        userId: session.sub,
+        tenantId: session.organizationId || `user:${session.sub}`,
+      };
+    }
+  }
+
   const token = requestHeader(request, 'authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) throw new HttpError(401, 'Unauthorized');
 
