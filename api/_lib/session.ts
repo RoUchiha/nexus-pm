@@ -62,11 +62,11 @@ function cookies(request: VercelRequest): Record<string, string> {
 }
 
 function cookie(name: string, value: string, maxAge: number): string {
-  return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+  return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax; Priority=High`;
 }
 
 export function createSessionCookie(session: SessionData): string {
-  return cookie(SESSION_COOKIE, seal(session, 'session'), 8 * 60 * 60);
+  return cookie(SESSION_COOKIE, seal(session, 'session'), 60 * 60);
 }
 
 export function createTransactionCookie(transaction: OAuthTransaction): string {

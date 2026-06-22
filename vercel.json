@@ -1,5 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        { "type": "query", "key": "code" },
+        { "type": "query", "key": "state" }
+      ],
+      "destination": "/api/auth/callback"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

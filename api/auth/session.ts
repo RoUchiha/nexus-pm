@@ -1,7 +1,8 @@
 import { readSession } from '../_lib/session.js';
-import type { VercelRequest, VercelResponse } from '../_lib/http.js';
+import { disableCaching, type VercelRequest, type VercelResponse } from '../_lib/http.js';
 
 export default function handler(request: VercelRequest, response: VercelResponse): void {
+  disableCaching(response);
   if (request.method !== 'GET') {
     response.status(405).send('Method not allowed');
     return;

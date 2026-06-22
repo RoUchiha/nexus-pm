@@ -7,10 +7,15 @@ export interface VercelRequest {
 
 export interface VercelResponse {
   status(code: number): VercelResponse;
-  setHeader(name: string, value: string): VercelResponse;
+  setHeader(name: string, value: string | string[]): VercelResponse;
   json(body: unknown): void;
   send(body: string): void;
   end(): void;
+}
+
+export function disableCaching(response: VercelResponse): void {
+  response.setHeader('Cache-Control', 'no-store, max-age=0');
+  response.setHeader('Pragma', 'no-cache');
 }
 
 export class HttpError extends Error {

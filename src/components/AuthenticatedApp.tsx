@@ -18,6 +18,19 @@ function Auth0App() {
     | { status: 'signed-in'; user: { name?: string; email?: string } }
   >({ status: 'loading' });
 
+  const signOut = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'same-origin',
+      });
+      const body = (await response.json()) as { logoutUrl?: string };
+      window.location.assign(response.ok && body.logoutUrl ? body.logoutUrl : '/');
+    } catch {
+      window.location.assign('/');
+    }
+  };
+
   useEffect(() => {
     let active = true;
     const params = new URLSearchParams(window.location.search);
@@ -88,7 +101,7 @@ function Auth0App() {
         <button
           className="btn btn-ghost"
           title={state.user.email ?? state.user.name ?? 'Signed in'}
-          onClick={() => window.location.assign('/api/auth/logout')}
+          onClick={() => void signOut()}
         >
           Sign out
         </button>

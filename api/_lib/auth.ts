@@ -11,6 +11,7 @@ export async function requirePrincipal(request: VercelRequest): Promise<Principa
   if (process.env.AUTH0_DOMAIN) {
     const session = readSession(request);
     if (session) {
+      requireSameOriginForMutation(request);
       return {
         userId: session.sub,
         tenantId: session.organizationId || `user:${session.sub}`,
@@ -26,6 +27,16 @@ export async function requirePrincipal(request: VercelRequest): Promise<Principa
   }
 
   return requireClerkPrincipal(token);
+}
+
+function requireSameOriginForMutation(request: VercelRequest): void {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(request.method ?? 'GET')) return;
+
+  const configuredBaseUrl = process.env.AUTH0_BASE_URL;
+  const origin = requestHeader(request, 'origin');
+  if (!configuredBaseUrl || !origin || new URL(configuredBaseUrl).origin !== origin) {
+    throw new HttpError(403, 'Forbidden');
+  }
 }
 
 async function requireAuth0Principal(token: string, configuredDomain: string): Promise<Principal> {

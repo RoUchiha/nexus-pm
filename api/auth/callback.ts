@@ -5,7 +5,7 @@ import {
   readTransaction,
   type SessionData,
 } from '../_lib/session.js';
-import type { VercelRequest, VercelResponse } from '../_lib/http.js';
+import { disableCaching, type VercelRequest, type VercelResponse } from '../_lib/http.js';
 
 function queryValue(request: VercelRequest, name: string): string {
   const value = request.query?.[name];
@@ -16,6 +16,7 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse,
 ): Promise<void> {
+  disableCaching(response);
   if (request.method !== 'GET') {
     response.status(405).send('Method not allowed');
     return;
@@ -58,9 +59,9 @@ export default async function handler(
       email: typeof user.email === 'string' ? user.email : undefined,
       picture: typeof user.picture === 'string' ? user.picture : undefined,
       organizationId: typeof user.org_id === 'string' ? user.org_id : undefined,
-      expiresAt: Date.now() + 8 * 60 * 60 * 1_000,
+      expiresAt: Date.now() + 60 * 60 * 1_000,
     };
-    response.setHeader('Set-Cookie', createSessionCookie(session));
+    response.setHeader('Set-Cookie', [createSessionCookie(session), clearTransactionCookie()]);
     response.setHeader('Location', transaction.returnTo);
     response.status(302).end();
   } catch (error) {
