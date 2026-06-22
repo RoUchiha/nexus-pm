@@ -8,7 +8,7 @@ export default function handler(request: VercelRequest, response: VercelResponse
   }
   const session = readSession(request);
   if (!session) {
-    response.status(401).json({ authenticated: false });
+    response.status(200).json({ authenticated: false });
     return;
   }
   response.status(200).json({
