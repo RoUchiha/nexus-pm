@@ -24,7 +24,6 @@ const application =
       clientId={auth0ClientId}
       authorizationParams={{ redirect_uri: window.location.origin }}
       cacheLocation="memory"
-      useRefreshTokens
     >
       <AuthenticatedApp provider="auth0" />
     </Auth0Provider>
