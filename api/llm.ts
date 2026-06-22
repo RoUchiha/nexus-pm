@@ -5,7 +5,6 @@ import {
   HttpError,
   requestBody,
   requestHeader,
-  sendError,
   type VercelRequest,
   type VercelResponse,
 } from './_lib/http.js';
@@ -100,7 +99,7 @@ export default async function handler(
       response.status(502).json({ error: 'Provider request failed', correlationId });
       return;
     }
-    sendError(response, error);
+    response.status(error.status).json({ error: error.message, correlationId });
   } finally {
     if (release) await release().catch(() => undefined);
   }

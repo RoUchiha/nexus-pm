@@ -30,6 +30,15 @@ const ROUTES: Record<string, { format: ProviderRoute['format']; baseUrl: string;
   together: { format: 'openai', baseUrl: 'https://api.together.xyz', env: 'TOGETHER_API_KEY' },
 };
 
+export function configuredProviderIds(
+  environment: Record<string, string | undefined> = process.env,
+): string[] {
+  return Object.entries(ROUTES)
+    .filter(([, config]) => Boolean(environment[config.env]))
+    .map(([providerId]) => providerId)
+    .sort();
+}
+
 export function validateBrokerRequest(value: unknown): BrokerRequest {
   if (!value || typeof value !== 'object') throw new HttpError(400, 'Invalid request');
   const body = value as Partial<BrokerRequest>;

@@ -3,7 +3,7 @@ import llmHandler from '../api/llm';
 import securityEventsHandler from '../api/security-events';
 import loginHandler from '../api/auth/login';
 import logoutHandler from '../api/auth/logout';
-import { validateBrokerRequest } from '../api/_lib/providers';
+import { configuredProviderIds, validateBrokerRequest } from '../api/_lib/providers';
 import { requirePrincipal } from '../api/_lib/auth';
 import { createSessionCookie } from '../api/_lib/session';
 import { decryptCredential, encryptCredential } from '../api/_lib/vault';
@@ -176,6 +176,16 @@ describe('server control plane', () => {
         messages: [{ role: 'user', content: 'hello' }],
       }),
     ).toThrow();
+  });
+
+  it('reports only configured provider IDs without exposing credentials', () => {
+    const providers = configuredProviderIds({
+      GROQ_API_KEY: 'dummy-groq-secret',
+      OPENAI_API_KEY: '',
+      AUTH0_SECRET: 'must-not-affect-provider-status',
+    });
+    expect(providers).toEqual(['groq']);
+    expect(JSON.stringify(providers)).not.toContain('dummy-groq-secret');
   });
 
   it('encrypts connector credentials with tenant-bound authenticated encryption', () => {

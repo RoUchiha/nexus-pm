@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { ProviderConfig } from '../types';
 import { PROVIDER_DEFINITIONS, resolveProviders } from '../lib/providers';
 import { saveProviderConfigs } from '../lib/storage';
-import { isBrokerConfigured } from '../lib/broker';
+import { isProviderAvailable } from '../lib/broker';
 
 const TIER_COLORS: Record<string, string> = {
   free: 'var(--green)',
@@ -35,7 +35,9 @@ export function ProvidersPanel({ configs, onChange }: Props) {
   const managerCount = resolveProviders(configs, 'manager').length;
   const podCount = resolveProviders(configs, 'pod').length;
   const verifierCount = resolveProviders(configs, 'verifier').length;
-  const enabledCount = configs.filter((c) => c.enabled).length;
+  const enabledCount = configs.filter(
+    (config) => config.enabled && isProviderAvailable(config.providerId),
+  ).length;
 
   // Group by tier for display
   const byTier = {
@@ -83,7 +85,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
         <div className="provider-badges" style={{ display: 'flex', gap: 6, flex: 1 }}>
           {PROVIDER_DEFINITIONS.map((def) => {
             const cfg = configs.find((c) => c.providerId === def.id);
-            const isEnabled = cfg?.enabled && (def.id === 'ollama' || isBrokerConfigured());
+            const isEnabled = cfg?.enabled && isProviderAvailable(def.id);
             return (
               <span
                 key={def.id}
@@ -176,7 +178,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
               >
                 {byTier[tier].map((def) => {
                   const cfg = configs.find((c) => c.providerId === def.id)!;
-                  const brokerReady = def.id === 'ollama' || isBrokerConfigured();
+                  const brokerReady = isProviderAvailable(def.id);
                   const isReady = cfg.enabled && brokerReady;
 
                   const managerModels = def.models.filter((m) => m.roles.includes('manager'));
@@ -218,6 +220,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
                         {/* Toggle */}
                         <button
                           onClick={() => update(def.id, { enabled: !cfg.enabled })}
+                          disabled={!brokerReady}
                           style={{
                             width: 38,
                             height: 20,
@@ -229,7 +232,15 @@ export function ProvidersPanel({ configs, onChange }: Props) {
                             flexShrink: 0,
                             transition: 'background 0.2s',
                           }}
-                          title={cfg.enabled ? 'Disable' : 'Enable'}
+                          title={
+                            brokerReady
+                              ? cfg.enabled
+                                ? 'Disable'
+                                : 'Enable'
+                              : def.id === 'ollama'
+                                ? 'Start Ollama on localhost:11434 to enable'
+                                : 'Provider credential is not configured in this deployment'
+                          }
                         >
                           <span
                             style={{
@@ -258,7 +269,7 @@ export function ProvidersPanel({ configs, onChange }: Props) {
                         >
                           {brokerReady
                             ? 'Managed server credential'
-                            : 'Enterprise broker is not configured'}
+                            : 'Not configured by the deployment operator'}
                           {def.apiKeyPrefix &&
                             cfg.apiKey &&
                             !cfg.apiKey.startsWith(def.apiKeyPrefix) && (

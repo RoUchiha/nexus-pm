@@ -5,6 +5,7 @@ type TokenProvider = () => Promise<string | null | undefined>;
 
 let tokenProvider: TokenProvider | null = null;
 let publicDemoMode = false;
+let availableProviderIds = new Set<string>();
 
 export function setPublicDemoMode(enabled: boolean): void {
   publicDemoMode = enabled;
@@ -13,6 +14,32 @@ export function setPublicDemoMode(enabled: boolean): void {
 
 export function setBrokerTokenProvider(provider: TokenProvider | null): void {
   tokenProvider = provider;
+}
+
+export function setProviderAvailability(providerIds: string[]): void {
+  availableProviderIds = new Set(providerIds);
+}
+
+export function isProviderAvailable(providerId: string): boolean {
+  if (publicDemoMode) return false;
+  return availableProviderIds.has(providerId);
+}
+
+export async function refreshProviderAvailability(): Promise<void> {
+  if (publicDemoMode) {
+    setProviderAvailability([]);
+    return;
+  }
+
+  const managed = fetch('/api/providers/status', { credentials: 'same-origin' })
+    .then(async (response) => {
+      const body = (await response.json()) as { providers?: string[] };
+      return response.ok && Array.isArray(body.providers) ? body.providers : [];
+    })
+    .catch(() => [] as string[]);
+  const managedProviders = await managed;
+  const locallyHosted = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  setProviderAvailability(locallyHosted ? [...managedProviders, 'ollama'] : managedProviders);
 }
 
 export function isBrokerConfigured(): boolean {
@@ -51,6 +78,7 @@ export async function invokeBroker(
       signal,
     });
     const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
       text?: string;
       correlationId?: string;
     };
@@ -58,7 +86,7 @@ export async function invokeBroker(
       throw new Error(
         response.status === 429
           ? 'Provider quota exceeded. Retry after the displayed cooldown.'
-          : `Managed provider request failed (${response.status}). Correlation: ${body.correlationId ?? 'unavailable'}`,
+          : `${body.error ?? `Managed provider request failed (${response.status})`}. Correlation: ${body.correlationId ?? 'unavailable'}`,
       );
     }
     callbacks.onChunk(body.text);

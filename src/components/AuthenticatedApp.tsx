@@ -1,7 +1,11 @@
 import { SignIn, useAuth } from '@clerk/react';
 import { useEffect, useState } from 'react';
 import { App } from '../App';
-import { setBrokerTokenProvider } from '../lib/broker';
+import {
+  refreshProviderAvailability,
+  setBrokerTokenProvider,
+  setProviderAvailability,
+} from '../lib/broker';
 
 interface Props {
   provider: 'auth0' | 'clerk';
@@ -58,6 +62,8 @@ function Auth0App() {
         if (!active) return;
         if (response.ok && body.authenticated && body.user) {
           setBrokerTokenProvider(async () => undefined);
+          await refreshProviderAvailability();
+          if (!active) return;
           setState({ status: 'signed-in', user: body.user });
         } else {
           setBrokerTokenProvider(null);
@@ -70,6 +76,7 @@ function Auth0App() {
     return () => {
       active = false;
       setBrokerTokenProvider(null);
+      setProviderAvailability([]);
     };
   }, []);
 

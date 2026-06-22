@@ -1,7 +1,7 @@
 import type { ProviderDefinition, ProviderConfig, ResolvedProvider } from '../types';
 import type { StreamCallbacks, ApiMessage } from './api';
 import { normalizeLocalProviderBaseUrl, truncateForContext } from './security';
-import { invokeBroker, isBrokerConfigured } from './broker';
+import { invokeBroker, isProviderAvailable } from './broker';
 
 // ── Provider registry ─────────────────────────────────────────────────────────
 
@@ -289,7 +289,7 @@ export function resolveProviders(
       if (!c.enabled) return false;
       const def = PROVIDER_MAP.get(c.providerId);
       if (!def) return false;
-      if (def.id !== 'ollama' && !isBrokerConfigured()) return false;
+      if (!isProviderAvailable(def.id)) return false;
       if (def.id === 'ollama') {
         try {
           normalizeLocalProviderBaseUrl(c.customBaseUrl || def.baseUrl);
